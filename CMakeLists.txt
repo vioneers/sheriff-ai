@@ -5,4 +5,8 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_executable(sheriff_ai
     src/main.cpp
+	src/engine.cpp
+	src/board.cpp
+	src/piece.cpp
+	src/move.cpp
 )

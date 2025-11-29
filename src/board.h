@@ -1,7 +1,8 @@
 #ifndef __BOARD__
 #define __BOARD__
 
-#include <piece.h>
+struct move_t;
+struct piece_t;
 
 struct board_t {
 	piece_t* board[8][8];

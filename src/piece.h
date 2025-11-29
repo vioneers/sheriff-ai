@@ -1,8 +1,9 @@
 #ifndef __PIECE__
 #define __PIECE__
 
-#include <move.h>
-#include <board.h>
+#include "move.h"
+
+struct board_t;
 
 struct piece_t {
 	bool color; // False = White, True = Balck
