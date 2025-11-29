@@ -13,51 +13,30 @@ int main(int argc, char* argv[])
 	
 	if(in_file_name == "")
 	{
-		cerr << "Input file not provided. Pass it with -H" << endl;
+		cout << "Input file not provided. Pass it with -H" << endl;
 		return 1;
 	}
 	if(out_file_name == "")
 	{
-		cerr << "Output file not provided. Pass it with -m" << endl;
+		cout << "Output file not provided. Pass it with -m" << endl;
 		return 1;
 	}
 	
-	ifstream inFile(in_file_name);
-
-	if(!inFile.is_open()) 
-	{
-		cerr << "Error: Unable to open input file." << endl;
-		return 1;
-	}
-
-	// read input data
-
-	inFile.close();
-	
-
+	vector<move_t> move_hist = get_move_history(in_file_name);
 
 	// run fancy algorithm
-	string code;
-    cin>>code;
 
-	move_t move(code);
-	cout<<"from_file = "<<move.from_file<<'\n';
-	cout<<"to_file = "<<move.to_file<<'\n';
-	cout<<"promotion = " << move.promotion<<'\n';
+	vector<move_t> open_w = {{"e2e4"}, {"d1h5"}, {"f1c4"}, {"h5f7"}};
+	vector<move_t> open_b = {{"e7e6"}, {"a7a6"}, {"d8h4"}, {"h4g3"}, {"g3f2"}};
 
-
-
-	ofstream outFile(out_file_name);
+	move_t move{"d7d5"}; // random move
+	int turn = move_hist.size();
+	if(turn % 2 == 0)
+		move = open_w[turn/2];
+	else
+		move = open_b[turn/2]; // pro gamer move
 	
-	outFile << move.to_code() << endl;
-
-	if(!outFile.is_open())
-	{
-		cerr << "Error: Unable to open output file." << endl;
-		return 1;
-	}
-
-	outFile.close();
+	write_move(move, out_file_name);	
 
     return 0;
 }
