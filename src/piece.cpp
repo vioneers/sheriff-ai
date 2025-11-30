@@ -64,7 +64,7 @@ std::vector<move_t> rook_t :: get_available_moves(board_t* board, int rank, int 
         int new_file = file + directions[i][1]; 
 
         // Slide until outside the board (or until break reached)
-        while (new_rank >= 0 || new_rank <= 7 || new_file >= 0 || new_file <= 7)
+        while (new_rank >= 0 && new_rank <= 7 && new_file >= 0 && new_file <= 7)
         {
             // See if there is already a piece in the destination 
             piece_t* destination = board->get_piece(new_rank, new_file);
@@ -97,7 +97,7 @@ std::vector<move_t> bishop_t :: get_available_moves(board_t* board, int rank, in
         int new_file = file + directions[i][1]; 
 
         // Slide until outside the board (or until break reached)
-        while (new_rank >= 0 || new_rank <= 7 || new_file >= 0 || new_file <= 7)
+        while (new_rank >= 0 && new_rank <= 7 && new_file >= 0 && new_file <= 7)
         {
             // See if there is already a piece in the destination 
             piece_t* destination = board->get_piece(new_rank, new_file);
@@ -131,7 +131,7 @@ std::vector<move_t> queen_t :: get_available_moves(board_t* board, int rank, int
         int new_file = file + directions[i][1]; 
 
         // Slide until outside the board (or until break reached)
-        while (new_rank >= 0 || new_rank <= 7 || new_file >= 0 || new_file <= 7)
+        while (new_rank >= 0 && new_rank <= 7 && new_file >= 0 && new_file <= 7)
         {
             // See if there is already a piece in the destination 
             piece_t* destination = board->get_piece(new_rank, new_file);
@@ -193,10 +193,10 @@ std::vector<move_t> pawn_t :: get_available_moves(board_t* board, int rank, int 
         int new_file = file + dir_file[i];
         if (new_rank >= 0 && new_rank <= 7 && new_file >= 0 && new_file <=7)
         {
-            piece_t* destination = board->get_piece(new_rank, file);
+            piece_t* destination = board->get_piece(new_rank, new_file);
             // Need opponent piece, not empty
             if (destination != nullptr && destination->color != this->color)
-                moves.emplace_back(rank, file, new_rank, file);
+                moves.emplace_back(rank, file, new_rank, new_file);
         }
     }
     return moves;
