@@ -4,3 +4,9 @@
 - Created GitLab repository, set up files structure 
 - Configured the project to build using CMake
 - Implemented piece.h and piece.cpp (structures for each piece type and corresponding get_available_moves function, returning a std vector of all pseudo-legal moves, disregarding check, checkmate etc.) 
+
+## Week 2
+- Implemented engine.h and engine.cpp
+- Additions to board.h and board.cpp for initialization of board based on moves history
+- Combined all components in main.cpp, outputing the first entry of the legal moves vector
+- Minor fixes in piece_t and move_t
