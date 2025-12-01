@@ -1,8 +1,12 @@
 #include <fstream> 
 #include <iostream>
+#include <vector>
 
 #include "utils.h"
 #include "move.h"
+#include "engine.h"
+#include "piece.h"
+#include "board.h"
 
 using namespace std; 
 
@@ -23,20 +27,31 @@ int main(int argc, char* argv[])
 	}
 	
 	vector<move_t> move_hist = get_move_history(in_file_name);
+	engine_t engine(move_hist);
 
-	// run fancy algorithm
-
-	vector<move_t> open_w = {{"e2e4"}, {"d1h5"}, {"f1c4"}, {"h5f7"}};
-	vector<move_t> open_b = {{"e7e6"}, {"a7a6"}, {"d8h4"}, {"h4g3"}, {"g3f2"}};
-
-	move_t move{"d7d5"}; // random move
-	int turn = move_hist.size();
-	if(turn % 2 == 0)
-		move = open_w[turn/2];
+	bool turn; 
+	if (move_hist.size() % 2 == 0) 
+		turn = false; // White
 	else
-		move = open_b[turn/2]; // pro gamer move
-	
-	write_move(move, out_file_name);	
+		turn = true; // Black
 
+	vector <move_t> legal; // vector that will store all legal moves
+	for (int rank = 0; rank < 8; rank++){
+		for (int file = 0; file < 8; file++){
+			piece_t* p = engine.board_state.get_piece(rank,file); 
+			if (p!= nullptr && p->color == turn){ // If the current piece if the color of the current turn
+				// Start with pseudo_legal moves returned by get_available_moves (method of piece_t)
+				vector <move_t> pseudo_legal = p->get_available_moves(&engine.board_state, rank, file); 
+				for(auto& move : pseudo_legal){ // Check all pseudo_legal moves in the current configuration of the board (method of board_t)
+					if(engine.board_state.check_move(&move))
+						legal.push_back(move);
+				}
+			}
+		}
+	}
+
+	// For this stage of the project, we choose the first legal move.
+	if (!legal.empty()) // There exists at least one legal move to make
+		write_move(legal[0], out_file_name); 
     return 0;
 }

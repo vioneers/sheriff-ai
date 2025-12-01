@@ -156,13 +156,12 @@ std::vector<move_t> queen_t :: get_available_moves(board_t* board, int rank, int
 std::vector<move_t> pawn_t :: get_available_moves(board_t* board, int rank, int file){
     std::vector<move_t> moves;
     int dir, initial_rank; // dir means dir_rank
-    if (this->color == false){ // White => move rank +1
-        dir = 1; 
-        initial_rank = 1;
-    } 
-    else{ // Black => move rank -1
-        dir = -1; 
+    if (this->color == false) {   // White => rank up
+        dir = -1;                 
         initial_rank = 6;
+    } else {                      // Black => rank down
+        dir = 1;                  
+        initial_rank = 1;
     }
 
     // Forward move (1 step or can be 2 steps if started at initial_rank)

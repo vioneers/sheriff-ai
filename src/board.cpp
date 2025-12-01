@@ -1,9 +1,74 @@
 #include <cmath>
 #include "board.h"
 #include "piece.h"
+#include "engine.h"
 
+board_t::board_t() {
+    for (int rank = 0; rank < 8; rank++)
+        for (int file = 0; file < 8; file++)
+            board[rank][file] = nullptr;
+}
 
-// implementations of board functions
+board_t::board_t(std::array <piece_t*, 12> pieces){   // Initial board
+    for (int i = 0; i < 8 ; i++) {
+        for (int j = 0; j < 8; j++)
+            board[i][j] = nullptr;
+    }
+
+    // Pawns
+    for (int j = 0; j < 8; j++) {
+        board[1][j] = pieces[PAWN_B];
+        board[6][j] = pieces[PAWN_W];
+    }
+
+    // Black back rank
+    board[0][0] = pieces[ROOK_B];
+    board[0][1] = pieces[KNIGHT_B];
+    board[0][2] = pieces[BISHOP_B];
+    board[0][3] = pieces[QUEEN_B];
+    board[0][4] = pieces[KING_B];
+    board[0][5] = pieces[BISHOP_B];
+    board[0][6] = pieces[KNIGHT_B];
+    board[0][7] = pieces[ROOK_B];
+
+    // White back rank
+    board[7][0] = pieces[ROOK_W];
+    board[7][1] = pieces[KNIGHT_W];
+    board[7][2] = pieces[BISHOP_W];
+    board[7][3] = pieces[QUEEN_W];
+    board[7][4] = pieces[KING_W];
+    board[7][5] = pieces[BISHOP_W];
+    board[7][6] = pieces[KNIGHT_W];
+    board[7][7] = pieces[ROOK_W];
+}
+
+board_t::board_t(std::vector <move_t> move_hist, std::array <piece_t*, 12> pieces) : board_t(pieces) {
+    for (auto& move: move_hist){
+        board[move.to_rank][move.to_file] = board[move.from_rank][move.from_file];
+        board[move.from_rank][move.from_file] = nullptr; 
+        if(board[move.to_rank][move.to_file]->color == false){// White 
+            switch(move.promotion)
+            {
+                case 'q': board[move.to_rank][move.to_file] = pieces[QUEEN_W]; break;
+                case 'r': board[move.to_rank][move.to_file] = pieces[ROOK_W]; break;
+                case 'k': board[move.to_rank][move.to_file] = pieces[KNIGHT_W]; break;
+                case 'b': board[move.to_rank][move.to_file] = pieces[BISHOP_W]; break; 
+                default: break; 
+            }
+        } 
+        else{ // Black
+            switch(move.promotion)
+            {
+                case 'q': board[move.to_rank][move.to_file] = pieces[QUEEN_B]; break;
+                case 'r': board[move.to_rank][move.to_file] = pieces[ROOK_B]; break;
+                case 'k': board[move.to_rank][move.to_file] = pieces[KNIGHT_B]; break;
+                case 'b': board[move.to_rank][move.to_file] = pieces[BISHOP_B]; break; 
+                default: break; 
+            }
+        }
+        
+    }
+}
 
 piece_t* board_t::get_piece(int rank, int file)
 {
