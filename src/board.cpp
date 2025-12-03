@@ -91,7 +91,7 @@ bool board_t::square_attacked(int r, int f, bool by_color) const {
         int dr = r - sr, df = f - sf;
         switch (o->symbol) {
             case 'P': {
-                int dir = o->color ? -1 : 1; // black attacks down, white up
+                int dir = o->color ? 1 : -1; // black attacks down, white up
                 if (dr == dir && std::abs(df) == 1) 
                     return true;
                 break;
@@ -175,7 +175,7 @@ bool board_t::check_move(move_t* move){
 
         case 'P': // Pawn
         {
-            int dir = piece->color ? -1 : 1; // Direction of movement
+            int dir = piece->color ? 1 : -1; // Direction of movement
             // Standard move
             if (ff == tf){
                 if (tr - fr == dir && destination == nullptr)
