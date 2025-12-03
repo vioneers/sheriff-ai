@@ -275,8 +275,25 @@ std::vector<move_t> pawn_t :: get_available_moves(board_t* board, int rank, int 
                     moves.emplace_back(rank, file, new_rank, new_file);
                 }
             }
+        }
+    }
+
+    // En passant capture
+    int ep_r = board->ep_rank;
+    int ep_f = board->ep_file;
+    if (ep_r != -1) {
+        int target_rank = rank + dir;
+        for (int df : {-1, 1}) {
+            int target_file = file + df;
+            if (target_rank == ep_r && target_file == ep_f) {
+                piece_t* adj = board->get_piece(rank, target_file);
+                if (board->get_piece(target_rank, target_file) == nullptr &&
+                    adj && adj->symbol == 'P' && adj->color != this->color) {
+                    moves.emplace_back(rank, file, target_rank, target_file);
+                }
             }
         }
+    }
 
     return moves;
 }

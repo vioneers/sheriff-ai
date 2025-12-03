@@ -9,4 +9,5 @@ Additions :
 ## Week 2
 - Added promotion moves to `get_available_moves()`.
 - Removed legal move checks duplicated between `get_available_moves()` and `check_move`.
-- Implemented castling generation and validation/replay.
+- Implemented castling and en passant generation and validation/replay.
+

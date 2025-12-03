@@ -13,6 +13,9 @@ struct board_t {
 	bool BK_castle;
 	bool BQ_castle;
 
+	int ep_rank;
+	int ep_file;
+
 	board_t();
 	board_t(std::array <piece_t*, 12> pieces); 
 	board_t(std::vector <move_t> move_hist, std::array <piece_t*, 12> pieces); 
