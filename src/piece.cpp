@@ -26,9 +26,10 @@ std::vector<move_t> king_t :: get_available_moves(board_t* board, int rank, int 
 
     piece_t* king = board->get_piece(rank, file);
     // Castling moves
+    piece_t* rook;
     if (!king->color){ // White king 
         // King-side
-        piece_t* rook = board->get_piece(7, 7);
+        rook = board->get_piece(7, 7);
         if (board->WK_castle &&
             rook && rook->symbol == 'R' && !rook->color &&
             board->get_piece(7,5) == nullptr &&
@@ -40,7 +41,7 @@ std::vector<move_t> king_t :: get_available_moves(board_t* board, int rank, int 
             moves.emplace_back(7,4,7,6); // e1 to g1
         }
         // Queen-side
-        piece_t* rook = board->get_piece(7, 0);
+        rook = board->get_piece(7, 0);
         if (board->WQ_castle &&
             rook && rook->symbol == 'R' && !rook->color &&
             board->get_piece(7,1) == nullptr &&
@@ -56,7 +57,7 @@ std::vector<move_t> king_t :: get_available_moves(board_t* board, int rank, int 
 
     else{ // Black king
         // King-side
-        piece_t* rook = board->get_piece(0, 7);
+        rook = board->get_piece(0, 7);
         if (board->BK_castle &&
             rook && rook->symbol == 'R' && rook->color &&
             board->get_piece(0,5) == nullptr &&
@@ -68,7 +69,7 @@ std::vector<move_t> king_t :: get_available_moves(board_t* board, int rank, int 
             moves.emplace_back(0,4,0,6); // e8 to g8
         }
         // Queen-side
-        piece_t* rook = board->get_piece(0, 0);
+        rook = board->get_piece(0, 0);
         if (board->BQ_castle &&
             rook && rook->symbol == 'R' && rook->color &&
             board->get_piece(0,1) == nullptr &&
