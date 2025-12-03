@@ -8,6 +8,10 @@ struct piece_t;
 
 struct board_t {
 	piece_t* board[8][8];
+	bool WK_castle;
+	bool WQ_castle;
+	bool BK_castle;
+	bool BQ_castle;
 
 	board_t();
 	board_t(std::array <piece_t*, 12> pieces); 

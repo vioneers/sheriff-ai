@@ -7,6 +7,11 @@ board_t::board_t() {
     for (int rank = 0; rank < 8; rank++)
         for (int file = 0; file < 8; file++)
             board[rank][file] = nullptr;
+
+    WK_castle = true;
+	WQ_castle = true;
+	BK_castle = true;
+	BQ_castle = true;
 }
 
 board_t::board_t(std::array <piece_t*, 12> pieces){   // Initial board
@@ -40,29 +45,89 @@ board_t::board_t(std::array <piece_t*, 12> pieces){   // Initial board
     board[7][5] = pieces[BISHOP_W];
     board[7][6] = pieces[KNIGHT_W];
     board[7][7] = pieces[ROOK_W];
+
+    WK_castle = true;
+	WQ_castle = true;
+	BK_castle = true;
+	BQ_castle = true;
 }
 
 board_t::board_t(std::vector <move_t> move_hist, std::array <piece_t*, 12> pieces) : board_t(pieces) {
+    WK_castle = true;
+	WQ_castle = true;
+	BK_castle = true;
+	BQ_castle = true;
+    
     for (auto& move: move_hist){
-        board[move.to_rank][move.to_file] = board[move.from_rank][move.from_file];
-        board[move.from_rank][move.from_file] = nullptr; 
-        if(board[move.to_rank][move.to_file]->color == false){// White 
+        int fr = move.from_rank, ff = move.from_file;
+        int tr = move.to_rank, tf = move.to_file;
+
+        board[tr][tf] = board[fr][ff];
+        board[fr][ff] = nullptr; 
+
+        piece_t* moved_piece = board[tr][tf];
+
+        bool is_castle = false;
+        int rook_from_f = -1, rook_to_f = -1;
+
+        if (moved_piece &&  moved_piece->symbol == 'K' && std::abs(tf - ff) == 2) {
+            if (!moved_piece->color && fr == 7) { // white king on home rank
+                if (tf > ff && WK_castle) { rook_from_f = 7; rook_to_f = 5; is_castle = true; } // king-side
+                if (tf < ff && WQ_castle) { rook_from_f = 0; rook_to_f = 3; is_castle = true; } // queen-side
+            } else if (moved_piece->color && fr == 0) { // black king on home rank
+                if (tf > ff && BK_castle) { rook_from_f = 7; rook_to_f = 5; is_castle = true; }
+                if (tf < ff && BQ_castle) { rook_from_f = 0; rook_to_f = 3; is_castle = true; }
+            }
+        }
+
+        if (is_castle) {
+            board[fr][rook_to_f] = board[fr][rook_from_f];
+            board[fr][rook_from_f] = nullptr;
+        }
+
+        // Update castling rights if king or rook moved
+        if (moved_piece->symbol == 'K'){
+            if (moved_piece->color == false){ // White king
+                WK_castle = false;
+                WQ_castle = false;
+            }
+            else{ // Black king
+                BK_castle = false;
+                BQ_castle = false;
+            }
+        }
+        else if (moved_piece->symbol == 'R'){
+            if (moved_piece->color == false){ // White rook
+                if (fr == 7 && ff == 0) // a1 rook
+                    WQ_castle = false;
+                else if (fr == 7 && ff == 7) // h1 rook
+                    WK_castle = false;
+            }
+            else{ // Black rook
+                if (fr == 0 && ff == 0) // a8 rook
+                    BQ_castle = false;
+                else if (fr == 0 && ff == 7) // h8 rook
+                    BK_castle = false;
+            }
+        }
+
+        if(board[tr][tf]->color == false){// White 
             switch(move.promotion)
             {
-                case 'q': board[move.to_rank][move.to_file] = pieces[QUEEN_W]; break;
-                case 'r': board[move.to_rank][move.to_file] = pieces[ROOK_W]; break;
-                case 'k': board[move.to_rank][move.to_file] = pieces[KNIGHT_W]; break;
-                case 'b': board[move.to_rank][move.to_file] = pieces[BISHOP_W]; break; 
+                case 'q': board[tr][tf] = pieces[QUEEN_W]; break;
+                case 'r': board[tr][tf] = pieces[ROOK_W]; break;
+                case 'k': board[tr][tf] = pieces[KNIGHT_W]; break;
+                case 'b': board[tr][tf] = pieces[BISHOP_W]; break; 
                 default: break; 
             }
         } 
         else{ // Black
             switch(move.promotion)
             {
-                case 'q': board[move.to_rank][move.to_file] = pieces[QUEEN_B]; break;
-                case 'r': board[move.to_rank][move.to_file] = pieces[ROOK_B]; break;
-                case 'k': board[move.to_rank][move.to_file] = pieces[KNIGHT_B]; break;
-                case 'b': board[move.to_rank][move.to_file] = pieces[BISHOP_B]; break; 
+                case 'q': board[tr][tf] = pieces[QUEEN_B]; break;
+                case 'r': board[tr][tf] = pieces[ROOK_B]; break;
+                case 'k': board[tr][tf] = pieces[KNIGHT_B]; break;
+                case 'b': board[tr][tf] = pieces[BISHOP_B]; break; 
                 default: break; 
             }
         }
@@ -137,89 +202,30 @@ bool board_t::in_check(bool color) const {
     return square_attacked(kr, kf, !color);
 }
 
+// Works as long as we are guaranteed that the move is a pseudo-legal move from get_available_moves
 bool board_t::check_move(move_t* move){
-    // We need to account for our king being under check or any of the pieces being pinned, both being board states.
     piece_t* piece = get_piece(move->from_rank, move->from_file);
     piece_t* destination = get_piece(move->to_rank, move->to_file);
 
     int fr = move->from_rank, ff = move->from_file;
     int tr = move->to_rank, tf = move->to_file;
 
-    if (piece == nullptr)
+    if (!piece)
         return false; // No piece at source
 
-    if (destination != nullptr && piece->color == destination->color)
-        return false; // Can't capture own piece
-
-    if (fr == tr && ff == tf)
-        return false; // No movement
-
-    bool legal_shape = false;
-    switch (piece->symbol){
-        case 'K': // King
-        {
-            legal_shape = (std::abs(tr - fr) <= 1 && std::abs(tf - ff) <= 1) 
-                            && !square_attacked(tr, tf, !piece->color); // Can't move more than 1 square
-            
-            break;
+    bool is_castle = piece && piece->symbol == 'K' && std::abs(tf - ff) == 2;
+    piece_t* rook = nullptr;
+    int rook_from_f = -1, rook_to_f = -1;
+    if (is_castle) {
+        if (!piece->color && fr == 7) {           // white
+            if (tf > ff) { rook_from_f = 7; rook_to_f = 5; } // king-side
+            else         { rook_from_f = 0; rook_to_f = 3; } // queen-side
+        } else if (piece->color && fr == 0) {     // black
+            if (tf > ff) { rook_from_f = 7; rook_to_f = 5; }
+            else         { rook_from_f = 0; rook_to_f = 3; }
         }
-
-        case 'Q': // Queen
-        {
-            if (tr == fr || tf == ff || std::abs(tr - fr) == std::abs(tf - ff)){
-                // Here we check for pieces in between
-                legal_shape = !check_in_between(fr, ff, tr, tf);
-            }
-            break;
-        }
-
-        case 'P': // Pawn
-        {
-            int dir = piece->color ? 1 : -1; // Direction of movement
-            // Standard move
-            if (ff == tf){
-                if (tr - fr == dir && destination == nullptr)
-                    legal_shape = true; // Move forward 1
-                if ((fr == 1 && dir == 1) || (fr == 6 && dir == -1)){
-                    if (tr - fr == 2 * dir && destination == nullptr && get_piece(fr + dir, ff) == nullptr)
-                        legal_shape = true; // Move forward 2 from initial position
-                }
-            }
-            // Capture move
-            else if (std::abs(tf - ff) == 1 && tr - fr == dir){
-                if (destination != nullptr && destination->color != piece->color)
-                    legal_shape = true; 
-            }
-            break;
-        }
-        case 'N': // Knight
-        {
-            legal_shape = (std::abs(tr - fr) == 2 && std::abs(tf - ff) == 1) || (std::abs(tr - fr) == 1 && std::abs(tf - ff) == 2);
-    
-            break;
-        }
-        case 'B': // Bishop
-        {
-            if (std::abs(tr - fr) == std::abs(tf - ff)){
-                // Here we check for pieces in between
-                legal_shape = !check_in_between(fr, ff, tr, tf);
-            }
-            break;
-        }
-        case 'R': // Rook
-        {
-            if (tr == fr || tf == ff){
-                // Here we check for pieces in between
-                legal_shape = !check_in_between(fr, ff, tr, tf);
-            }
-            break;
-        }
-        default:
-            break;
-    }        
-
-    if (!legal_shape)
-        return false;
+        if (rook_from_f != -1) rook = board[fr][rook_from_f];
+    }
 
     // simulate
     piece_t* captured = destination;
@@ -228,13 +234,22 @@ bool board_t::check_move(move_t* move){
     board[tr][tf] = piece;
     board[fr][ff] = nullptr;
 
+    if (is_castle && rook) {
+        board[fr][rook_to_f] = rook;
+        board[fr][rook_from_f] = nullptr;
+    }
+
     bool self_in_check = in_check(piece->color);
 
     // Undo the move
     board[fr][ff] = piece;
     board[tr][tf] = captured;
 
+    if (is_castle && rook) {
+        board[fr][rook_from_f] = rook;
+        board[fr][rook_to_f] = nullptr;
+    }
+
     return !self_in_check;
 }
-
 

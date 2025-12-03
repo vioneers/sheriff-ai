@@ -7,4 +7,6 @@ Additions :
 - `check_in_between()` - Given two squares on the board, checks if any piece obstructs the path between the two squares.
 
 ## Week 2
-- Added promotion moves to `get_available_moves()`
+- Added promotion moves to `get_available_moves()`.
+- Removed legal move checks duplicated between `get_available_moves()` and `check_move`.
+- Implemented castling generation and validation/replay.

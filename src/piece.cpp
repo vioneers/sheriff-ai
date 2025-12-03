@@ -24,6 +24,64 @@ std::vector<move_t> king_t :: get_available_moves(board_t* board, int rank, int 
             moves.emplace_back(rank, file, new_rank, new_file);
     }
 
+    piece_t* king = board->get_piece(rank, file);
+    // Castling moves
+    if (!king->color){ // White king 
+        // King-side
+        piece_t* rook = board->get_piece(7, 7);
+        if (board->WK_castle &&
+            rook && rook->symbol == 'R' && !rook->color &&
+            board->get_piece(7,5) == nullptr &&
+            board->get_piece(7,6) == nullptr &&
+            !board->in_check(false) &&
+            !board->square_attacked(7,5,true) &&
+            !board->square_attacked(7,6,true))
+        {
+            moves.emplace_back(7,4,7,6); // e1 to g1
+        }
+        // Queen-side
+        piece_t* rook = board->get_piece(7, 0);
+        if (board->WQ_castle &&
+            rook && rook->symbol == 'R' && !rook->color &&
+            board->get_piece(7,1) == nullptr &&
+            board->get_piece(7,2) == nullptr &&
+            board->get_piece(7,3) == nullptr &&
+            !board->in_check(false) &&
+            !board->square_attacked(7,2,true) &&
+            !board->square_attacked(7,3,true))
+        {
+            moves.emplace_back(7,4,7,2); // e1 to c1
+        }
+    }
+
+    else{ // Black king
+        // King-side
+        piece_t* rook = board->get_piece(0, 7);
+        if (board->BK_castle &&
+            rook && rook->symbol == 'R' && rook->color &&
+            board->get_piece(0,5) == nullptr &&
+            board->get_piece(0,6) == nullptr &&
+            !board->in_check(true) &&
+            !board->square_attacked(0,5,false) &&
+            !board->square_attacked(0,6,false))
+        {
+            moves.emplace_back(0,4,0,6); // e8 to g8
+        }
+        // Queen-side
+        piece_t* rook = board->get_piece(0, 0);
+        if (board->BQ_castle &&
+            rook && rook->symbol == 'R' && rook->color &&
+            board->get_piece(0,1) == nullptr &&
+            board->get_piece(0,2) == nullptr &&
+            board->get_piece(0,3) == nullptr &&
+            !board->in_check(true) &&
+            !board->square_attacked(0,2,false) &&
+            !board->square_attacked(0,3,false))
+        {
+            moves.emplace_back(0,4,0,2); // e8 to c8
+        }
+    }
+
     return moves;
 }
 
@@ -218,6 +276,6 @@ std::vector<move_t> pawn_t :: get_available_moves(board_t* board, int rank, int 
             }
             }
         }
-        
+
     return moves;
 }
