@@ -164,6 +164,9 @@ std::vector<move_t> pawn_t :: get_available_moves(board_t* board, int rank, int 
         initial_rank = 1;
     }
 
+    int promotion_rank = this->color ? 7 : 0;
+    std::array<char,4> promos = { 'q', 'r', 'b', 'k' };
+
     // Forward move (1 step or can be 2 steps if started at initial_rank)
     int new_rank = rank + dir;
     // Don't go outside the board
@@ -172,14 +175,22 @@ std::vector<move_t> pawn_t :: get_available_moves(board_t* board, int rank, int 
 
         // Destination is empty => possible move 
         if (destination == nullptr){
-            moves.emplace_back(rank, file, new_rank, file);
-            // Can move 2 steps if we come from the starting rank
-            if (rank == initial_rank){
-                new_rank += dir;
-                if (new_rank >= 0 && new_rank <= 7){
-                    piece_t* destination = board->get_piece(new_rank, file);
-                    if (destination == nullptr)
-                        moves.emplace_back(rank, file, new_rank, file);
+            if (new_rank == promotion_rank){
+                for (char promo : promos) {
+                    moves.emplace_back(rank, file, new_rank, file, promo);
+                }
+            }
+            else {
+                moves.emplace_back(rank, file, new_rank, file);
+            
+                // Can move 2 steps if we come from the starting rank
+                if (rank == initial_rank){
+                    new_rank += dir;
+                    if (new_rank >= 0 && new_rank <= 7){
+                        piece_t* destination = board->get_piece(new_rank, file);
+                        if (destination == nullptr)
+                            moves.emplace_back(rank, file, new_rank, file);
+                    }
                 }
             }
         }
@@ -195,8 +206,18 @@ std::vector<move_t> pawn_t :: get_available_moves(board_t* board, int rank, int 
             piece_t* destination = board->get_piece(new_rank, new_file);
             // Need opponent piece, not empty
             if (destination != nullptr && destination->color != this->color)
-                moves.emplace_back(rank, file, new_rank, new_file);
+            {
+                if (new_rank == promotion_rank){
+                    for (char promo : promos) {
+                        moves.emplace_back(rank, file, new_rank, new_file, promo);
+                    }
+                }
+                else {
+                    moves.emplace_back(rank, file, new_rank, new_file);
+                }
+            }
+            }
         }
-    }
+        
     return moves;
 }

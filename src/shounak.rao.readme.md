@@ -5,3 +5,6 @@ Additions :
 - `in_check()` - Checks if the king of a given color is under check or not.
 - `square_attacked()` - Checks if a given square on the board is attacked by any piece of a certian color.
 - `check_in_between()` - Given two squares on the board, checks if any piece obstructs the path between the two squares.
+
+## Week 2
+- Added promotion moves to `get_available_moves()`
