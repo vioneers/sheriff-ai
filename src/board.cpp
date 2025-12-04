@@ -303,3 +303,20 @@ bool board_t::check_move(move_t* move){
     return !self_in_check;
 }
 
+std::vector <move_t> board_t::get_legal_moves(int turn){
+    std::vector <move_t> legal;
+    for (int rank = 0; rank < 8; rank++){
+		for (int file = 0; file < 8; file++){
+			piece_t* p = get_piece(rank,file); 
+			if (p!= nullptr && p->color == turn){ // If the current piece if the color of the current turn
+				// Start with pseudo_legal moves returned by get_available_moves (method of piece_t)
+				std::vector <move_t> pseudo_legal = p->get_available_moves(this, rank, file); 
+				for(auto& move : pseudo_legal){ // Check all pseudo_legal moves in the current configuration of the board (method of board_t)
+					if(check_move(&move))
+						legal.push_back(move);
+				}
+			}
+		}
+	}
+    return legal;
+}

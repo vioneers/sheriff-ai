@@ -35,20 +35,7 @@ int main(int argc, char* argv[])
 	else
 		turn = true; // Black
 
-	vector <move_t> legal; // vector that will store all legal moves
-	for (int rank = 0; rank < 8; rank++){
-		for (int file = 0; file < 8; file++){
-			piece_t* p = engine.board_state.get_piece(rank,file); 
-			if (p!= nullptr && p->color == turn){ // If the current piece if the color of the current turn
-				// Start with pseudo_legal moves returned by get_available_moves (method of piece_t)
-				vector <move_t> pseudo_legal = p->get_available_moves(&engine.board_state, rank, file); 
-				for(auto& move : pseudo_legal){ // Check all pseudo_legal moves in the current configuration of the board (method of board_t)
-					if(engine.board_state.check_move(&move))
-						legal.push_back(move);
-				}
-			}
-		}
-	}
+	vector <move_t> legal = engine.board_state.get_legal_moves(turn); // vector that will store all legal moves
 
 	// For this stage of the project, we choose the first legal move.
 	if (!legal.empty()) // There exists at least one legal move to make

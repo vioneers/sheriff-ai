@@ -26,6 +26,8 @@ struct board_t {
 	bool check_in_between(int fr, int ff, int tr, int tf) const;
 	bool square_attacked(int r, int f, bool by_color) const;
 	bool in_check(bool color) const;
+
+	std::vector <move_t> get_legal_moves(int turn);
 };
 
 #endif
