@@ -10,4 +10,6 @@ Additions :
 - Added promotion moves to `get_available_moves()`.
 - Removed legal move checks duplicated between `get_available_moves()` and `check_move`.
 - Implemented castling and en passant generation and validation/replay.
+- Set up lichess bot to play using our engine by splitting the entrypoints and adding a separate build target `sheriff_ai_lichess` for the bot.
+- Set up UCI control and parsing so lichess bot can use the engine via the sheriff_ai_lichess target.
 
