@@ -32,7 +32,7 @@ int main(int argc, char* argv[])
 
 	vector <move_t> legal = engine.board_state.get_legal_moves(); // vector that will store all legal moves
 
-	// For this stage of the project, we choose the first legal move.
+	// For this stage of the project, we choose a random legal move.
 	if (!legal.empty()) // There exists at least one legal move to make
     {
         static std::mt19937 rng(std::random_device{}());
@@ -42,3 +42,6 @@ int main(int argc, char* argv[])
 
     return 0;
 }
+
+
+// Build with "cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release"
