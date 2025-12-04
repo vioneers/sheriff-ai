@@ -8,6 +8,8 @@ struct piece_t;
 
 struct board_t {
 	piece_t* board[8][8];
+	bool turn;
+
 	bool WK_castle;
 	bool WQ_castle;
 	bool BK_castle;
@@ -27,7 +29,7 @@ struct board_t {
 	bool square_attacked(int r, int f, bool by_color) const;
 	bool in_check(bool color) const;
 
-	std::vector <move_t> get_legal_moves(int turn);
+	std::vector <move_t> get_legal_moves();
 };
 
 #endif

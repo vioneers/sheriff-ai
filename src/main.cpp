@@ -29,13 +29,7 @@ int main(int argc, char* argv[])
 	vector<move_t> move_hist = get_move_history(in_file_name);
 	engine_t engine(move_hist);
 
-	bool turn; 
-	if (move_hist.size() % 2 == 0) 
-		turn = false; // White
-	else
-		turn = true; // Black
-
-	vector <move_t> legal = engine.board_state.get_legal_moves(turn); // vector that will store all legal moves
+	vector <move_t> legal = engine.board_state.get_legal_moves(); // vector that will store all legal moves
 
 	// For this stage of the project, we choose the first legal move.
 	if (!legal.empty()) // There exists at least one legal move to make

@@ -18,6 +18,8 @@ board_t::board_t() {
 }
 
 board_t::board_t(std::array <piece_t*, 12> pieces){   // Initial board
+    turn = true; // Starting => White
+
     for (int i = 0; i < 8 ; i++) {
         for (int j = 0; j < 8; j++)
             board[i][j] = nullptr;
@@ -59,6 +61,11 @@ board_t::board_t(std::array <piece_t*, 12> pieces){   // Initial board
 }
 
 board_t::board_t(std::vector <move_t> move_hist, std::array <piece_t*, 12> pieces) : board_t(pieces) {
+    if (move_hist.size() % 2 == 0) 
+		turn = false; // White
+	else
+		turn = true; // Black
+    
     WK_castle = true;
 	WQ_castle = true;
 	BK_castle = true;
@@ -303,7 +310,7 @@ bool board_t::check_move(move_t* move){
     return !self_in_check;
 }
 
-std::vector <move_t> board_t::get_legal_moves(int turn){
+std::vector <move_t> board_t::get_legal_moves(){
     std::vector <move_t> legal;
     for (int rank = 0; rank < 8; rank++){
 		for (int file = 0; file < 8; file++){
