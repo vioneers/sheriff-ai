@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 #include <tuple>
+#include <sstream>
+#include <fstream>
 
 #include "move.h"
 
@@ -66,4 +68,21 @@ void write_move(move_t move, string out_file_name)
 		exit(1);
 
 	outFile.close();
+}
+
+vector<string> split_tokens(const string& line)
+{
+    vector<string> tokens;
+    string tok;
+    istringstream ss(line);
+    while (ss >> tok) tokens.push_back(tok);
+    return tokens;
+}
+
+void append_moves_from_tokens(vector<move_t>& moves, const vector<string>& tokens, size_t start_idx)
+{
+    for (size_t i = start_idx; i < tokens.size(); ++i) {
+        if (tokens[i].size() < 4) continue;
+        moves.emplace_back(tokens[i]);
+    }
 }
