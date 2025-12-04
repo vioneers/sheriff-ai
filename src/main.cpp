@@ -1,6 +1,7 @@
 #include <fstream> 
 #include <iostream>
 #include <vector>
+#include <random>
 
 #include "utils.h"
 #include "move.h"
@@ -33,7 +34,11 @@ int main(int argc, char* argv[])
 
 	// For this stage of the project, we choose the first legal move.
 	if (!legal.empty()) // There exists at least one legal move to make
-		write_move(legal[0], out_file_name); 
+    {
+        static std::mt19937 rng(std::random_device{}());
+        std::uniform_int_distribution<size_t> dist(0, legal.size() - 1);
+        write_move(legal[dist(rng)], out_file_name);
+    }
 
     return 0;
 }

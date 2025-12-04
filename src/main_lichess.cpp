@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <random>
 
 #include "utils.h"
 #include "move.h"
@@ -14,7 +15,9 @@ static string compute_bestmove(const vector<move_t>& move_hist) {
     engine_t engine(move_hist);
     vector<move_t> legal = engine.board_state.get_legal_moves();
     if (legal.empty()) return "0000";
-    return legal[0].to_code();
+    static std::mt19937 rng(std::random_device{}());
+    std::uniform_int_distribution<size_t> dist(0, legal.size() - 1);
+    return legal[dist(rng)].to_code();
 }
 
 int main() {
