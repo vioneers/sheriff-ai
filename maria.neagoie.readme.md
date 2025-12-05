@@ -10,3 +10,4 @@
 - Additions to board.h and board.cpp for initialization of board based on moves history
 - Combined all components in main.cpp, outputing the first entry of the legal moves vector
 - Minor fixes in piece_t and move_t
+- Implemented AlphaBeta algorithm
