@@ -6,6 +6,16 @@
 
 struct board_t;
 
+enum pieces{
+	// White pieces
+    PAWN_W, ROOK_W, KNIGHT_W, BISHOP_W, QUEEN_W, KING_W,
+
+    // Black pieces
+    PAWN_B, ROOK_B, KNIGHT_B, BISHOP_B, QUEEN_B, KING_B,
+
+    PIECE_COUNT // = 12 
+};
+
 struct piece_t {
 	bool color; // Convention: False = White, True = Balck
 	char symbol; // P (pawn), K (king), Q (queen), N (knight), B (bishop), R (rook)
