@@ -1,5 +1,8 @@
 #include "engine.h"
 #include <vector>
+#include <limits>
+
+constexpr int INF = std::numeric_limits<int>::max();
 
 engine_t::engine_t(std::vector<move_t> move_hist)
     : pawn_w(false),
@@ -30,4 +33,47 @@ engine_t::engine_t(std::vector<move_t> move_hist)
     pieces[KING_B]   = &king_b;
 
     board_state = board_t(move_hist, pieces);
+}
+int engine_t::evaluate(); 
+int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root = true){
+    if (depth_left == 0)
+        return evaluate(); 
+    int best = -INF;
+    std::vector <move_t> legal = board.get_legal_moves(); 
+    for (auto& move: legal){
+        board.make_move(move);
+        int score = alphaBetaMin (alpha, beta, depth_left - 1, false);
+        board.undo_move(move);
+        
+        if (score  > best){
+            if (is_root) 
+                best_move = move;
+            best = score;
+            if (score > alpha)
+                alpha = score; 
+        }
+        if (score >= beta)
+            return score;
+    }
+    return best;
+}
+int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root){
+    if (depth_left == 0)
+        return -evaluate(); 
+    int best = INF;
+    std::vector <move_t> legal = board.get_legal_moves(); 
+    for (auto& move: legal){
+        board.make_move(move);
+        int score = alphaBetaMax (alpha, beta, depth_left - 1, false);
+        board.undo_move(move);
+        
+        if (score  < best){
+            best = score;
+            if (score < beta)
+                beta = score; 
+        }
+        if (score <= alpha)
+            return score;
+    }
+    return best;
 }

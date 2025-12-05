@@ -4,19 +4,10 @@
 #include "board.h"
 #include "piece.h"
 
-enum pieces{
-	// White pieces
-    PAWN_W, ROOK_W, KNIGHT_W, BISHOP_W, QUEEN_W, KING_W,
-
-    // Black pieces
-    PAWN_B, ROOK_B, KNIGHT_B, BISHOP_B, QUEEN_B, KING_B,
-
-    PIECE_COUNT // = 12 
-};
-
 struct engine_t {
 	board_t board_state; 	
 	std::array<piece_t*, PIECE_COUNT> pieces;
+    move_t best_move; 
 
     // Piece objects
     pawn_t   pawn_w;
@@ -34,6 +25,12 @@ struct engine_t {
     king_t   king_b;
 
 	engine_t(std::vector <move_t> move_hist);
+
+    // Inspiration for the Alpha-Beta algorihtm: https://www.chessprogramming.org
+    // depth_left = depth left until stopping
+    int evaluate(); 
+    int alphaBetaMax(int alpha, int beta, int depth_left, bool is_root = true);
+    int alphaBetaMin(int alpha, int beta, int depth_left, bool is_root);
 };
 
 #endif
