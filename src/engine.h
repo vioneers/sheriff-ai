@@ -30,7 +30,7 @@ struct engine_t {
     // depth_left = depth left until stopping
     int evaluate(); 
     int alphaBetaMax(int alpha, int beta, int depth_left, bool is_root = true);
-    int alphaBetaMin(int alpha, int beta, int depth_left, bool is_root);
+    int alphaBetaMin(int alpha, int beta, int depth_left, bool is_root = true);
 };
 
 #endif

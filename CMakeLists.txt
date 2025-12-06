@@ -8,6 +8,7 @@ set(ENGINE_SOURCES
     src/board.cpp
     src/piece.cpp
     src/move.cpp
+	src/evaluationbar.cpp
 )
 
 add_executable(sheriff_ai

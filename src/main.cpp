@@ -29,16 +29,14 @@ int main(int argc, char* argv[])
 	
 	vector<move_t> move_hist = get_move_history(in_file_name);
 	engine_t engine(move_hist);
-
-	vector <move_t> legal = engine.board_state.get_legal_moves(); // vector that will store all legal moves
-
-	// For this stage of the project, we choose a random legal move.
-	if (!legal.empty()) // There exists at least one legal move to make
-    {
-        static std::mt19937 rng(std::random_device{}());
-        std::uniform_int_distribution<size_t> dist(0, legal.size() - 1);
-        write_move(legal[dist(rng)], out_file_name);
-    }
+	
+	// if playing White, you are maximizing, elese minimize
+	// TODO: make it so we always maximize
+	if(move_hist.size() % 2 == 0)
+		engine.alphaBetaMax(-1e9, 1e9, 5);
+	else
+		engine.alphaBetaMin(-1e9, 1e9, 5);
+	write_move(engine.best_move, out_file_name);
 
     return 0;
 }

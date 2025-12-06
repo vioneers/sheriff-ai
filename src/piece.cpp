@@ -2,7 +2,10 @@
 #include "board.h"
 
 std::vector<move_t> king_t :: get_available_moves(board_t* board, int rank, int file){
-    std::vector<move_t> moves;
+	// get latest board params
+	params_t params = board->param_stack.back();
+
+	std::vector<move_t> moves;
     const int directions[8][2] = {
         {  1,  0 }, { -1,  0 }, {  0,  1 }, {  0, -1 },
         {  1,  1 }, {  1, -1 }, { -1,  1 }, { -1, -1 }
@@ -30,7 +33,7 @@ std::vector<move_t> king_t :: get_available_moves(board_t* board, int rank, int 
     if (!king->color){ // White king 
         // King-side
         rook = board->get_piece(7, 7);
-        if (board->WK_castle &&
+        if (params.WK_castle &&
             rook && rook->symbol == 'R' && !rook->color &&
             board->get_piece(7,5) == nullptr &&
             board->get_piece(7,6) == nullptr &&
@@ -42,7 +45,7 @@ std::vector<move_t> king_t :: get_available_moves(board_t* board, int rank, int 
         }
         // Queen-side
         rook = board->get_piece(7, 0);
-        if (board->WQ_castle &&
+        if (params.WQ_castle &&
             rook && rook->symbol == 'R' && !rook->color &&
             board->get_piece(7,1) == nullptr &&
             board->get_piece(7,2) == nullptr &&
@@ -58,7 +61,7 @@ std::vector<move_t> king_t :: get_available_moves(board_t* board, int rank, int 
     else{ // Black king
         // King-side
         rook = board->get_piece(0, 7);
-        if (board->BK_castle &&
+        if (params.BK_castle &&
             rook && rook->symbol == 'R' && rook->color &&
             board->get_piece(0,5) == nullptr &&
             board->get_piece(0,6) == nullptr &&
@@ -70,7 +73,7 @@ std::vector<move_t> king_t :: get_available_moves(board_t* board, int rank, int 
         }
         // Queen-side
         rook = board->get_piece(0, 0);
-        if (board->BQ_castle &&
+        if (params.BQ_castle &&
             rook && rook->symbol == 'R' && rook->color &&
             board->get_piece(0,1) == nullptr &&
             board->get_piece(0,2) == nullptr &&
@@ -213,7 +216,10 @@ std::vector<move_t> queen_t :: get_available_moves(board_t* board, int rank, int
 }
 
 std::vector<move_t> pawn_t :: get_available_moves(board_t* board, int rank, int file){
-    std::vector<move_t> moves;
+    // get latest board params
+	params_t params = board->param_stack.back();
+
+	std::vector<move_t> moves;
     int dir, initial_rank; // dir means dir_rank
     if (this->color == false) {   // White => rank up
         dir = -1;                 
@@ -279,8 +285,8 @@ std::vector<move_t> pawn_t :: get_available_moves(board_t* board, int rank, int 
     }
 
     // En passant capture
-    int ep_r = board->ep_rank;
-    int ep_f = board->ep_file;
+    int ep_r = params.ep_rank;
+    int ep_f = params.ep_file;
     if (ep_r != -1) {
         int target_rank = rank + dir;
         for (int df : {-1, 1}) {

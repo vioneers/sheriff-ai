@@ -3,27 +3,30 @@
 #include "piece.h"
 #include "engine.h"
 
-board_t::board_t() {
-    for (int rank = 0; rank < 8; rank++)
+board_t::board_t() { // init an empty board
+    turn = false; // Starting => White
+
+	for (int rank = 0; rank < 8; rank++)
         for (int file = 0; file < 8; file++)
             board[rank][file] = nullptr;
 
-    WK_castle = true;
-	WQ_castle = true;
-	BK_castle = true;
-	BQ_castle = true;
+    bool WK_castle = true;
+	bool WQ_castle = true;
+	bool BK_castle = true;
+	bool BQ_castle = true;
 
-    ep_rank = -1;
-    ep_file = -1;
+    int ep_rank = -1;
+    int ep_file = -1;
+
+	bool ep_played = false;
+
+	piece_t* captured = nullptr;
+
+	param_stack.emplace_back(WK_castle, WQ_castle, BK_castle, BQ_castle, ep_rank, ep_file, ep_played, captured);
 }
 
-board_t::board_t(std::array <piece_t*, 12> pieces){   // Initial board
-    turn = true; // Starting => White
-
-    for (int i = 0; i < 8 ; i++) {
-        for (int j = 0; j < 8; j++)
-            board[i][j] = nullptr;
-    }
+board_t::board_t(std::array <piece_t*, 12> pieces): board_t(){ // init board with inital piece placement
+	this->pieces = pieces;
 
     // Pawns
     for (int j = 0; j < 8; j++) {
@@ -50,130 +53,14 @@ board_t::board_t(std::array <piece_t*, 12> pieces){   // Initial board
     board[7][5] = pieces[BISHOP_W];
     board[7][6] = pieces[KNIGHT_W];
     board[7][7] = pieces[ROOK_W];
-
-    WK_castle = true;
-	WQ_castle = true;
-	BK_castle = true;
-	BQ_castle = true;
-
-    ep_rank = -1;
-    ep_file = -1;
 }
 
 board_t::board_t(std::vector <move_t> move_hist, std::array <piece_t*, 12> pieces) : board_t(pieces) {
-    if (move_hist.size() % 2 == 0) 
-		turn = false; // White
-	else
-		turn = true; // Black
-    
-    WK_castle = true;
-	WQ_castle = true;
-	BK_castle = true;
-	BQ_castle = true;
-    
-    for (auto& move: move_hist){
-        // Reset en passant square
-        ep_rank = -1;
-        ep_file = -1;
-
-        int fr = move.from_rank, ff = move.from_file;
-        int tr = move.to_rank, tf = move.to_file;
-
-        piece_t* to_capture = board[tr][tf];
-
-        board[tr][tf] = board[fr][ff];
-        board[fr][ff] = nullptr; 
-
-        piece_t* moved_piece = board[tr][tf];
-
-        bool is_castle = false;
-        int rook_from_f = -1, rook_to_f = -1;
-
-        // Handle castling move
-        if (moved_piece &&  moved_piece->symbol == 'K' && std::abs(tf - ff) == 2) {
-            if (!moved_piece->color && fr == 7) { // white king on home rank
-                if (tf > ff && WK_castle) { rook_from_f = 7; rook_to_f = 5; is_castle = true; } // king-side
-                if (tf < ff && WQ_castle) { rook_from_f = 0; rook_to_f = 3; is_castle = true; } // queen-side
-            } else if (moved_piece->color && fr == 0) { // black king on home rank
-                if (tf > ff && BK_castle) { rook_from_f = 7; rook_to_f = 5; is_castle = true; }
-                if (tf < ff && BQ_castle) { rook_from_f = 0; rook_to_f = 3; is_castle = true; }
-            }
-        }
-
-        if (is_castle) {
-            board[fr][rook_to_f] = board[fr][rook_from_f];
-            board[fr][rook_from_f] = nullptr;
-        }
-
-        // Handle en passant possibility
-        if (moved_piece && moved_piece->symbol == 'P' && std::abs(tr - fr) == 2) {
-            ep_rank = fr + (moved_piece->color ? 1 : -1);  // square jumped over
-            ep_file = ff;
-        }
-
-        // Handle en passant capture
-        if (moved_piece->symbol == 'P' && to_capture == nullptr &&
-        std::abs(tf - ff) == 1 && (tr - fr == (moved_piece->color ? 1 : -1))) {
-            int cap_r = fr;      // same rank as pawn started
-            int cap_f = tf;      // file it moved into
-            piece_t* ep_pawn = board[cap_r][cap_f];
-            if (ep_pawn && ep_pawn->symbol == 'P' && ep_pawn->color != moved_piece->color) {
-                board[cap_r][cap_f] = nullptr; // remove the captured pawn
-            }
-        }
-
-        // Update castling rights if king or rook moved
-        if (moved_piece->symbol == 'K'){
-            if (moved_piece->color == false){ // White king
-                WK_castle = false;
-                WQ_castle = false;
-            }
-            else{ // Black king
-                BK_castle = false;
-                BQ_castle = false;
-            }
-        }
-        else if (moved_piece->symbol == 'R'){
-            if (moved_piece->color == false){ // White rook
-                if (fr == 7 && ff == 0) // a1 rook
-                    WQ_castle = false;
-                else if (fr == 7 && ff == 7) // h1 rook
-                    WK_castle = false;
-            }
-            else{ // Black rook
-                if (fr == 0 && ff == 0) // a8 rook
-                    BQ_castle = false;
-                else if (fr == 0 && ff == 7) // h8 rook
-                    BK_castle = false;
-            }
-        }
-
-        // Handle pawn promotion
-        if(board[tr][tf]->color == false){// White 
-            switch(move.promotion)
-            {
-                case 'q': board[tr][tf] = pieces[QUEEN_W]; break;
-                case 'r': board[tr][tf] = pieces[ROOK_W]; break;
-                case 'k': board[tr][tf] = pieces[KNIGHT_W]; break;
-                case 'b': board[tr][tf] = pieces[BISHOP_W]; break; 
-                default: break; 
-            }
-        } 
-        else{ // Black
-            switch(move.promotion)
-            {
-                case 'q': board[tr][tf] = pieces[QUEEN_B]; break;
-                case 'r': board[tr][tf] = pieces[ROOK_B]; break;
-                case 'k': board[tr][tf] = pieces[KNIGHT_B]; break;
-                case 'b': board[tr][tf] = pieces[BISHOP_B]; break; 
-                default: break; 
-            }
-        }
-        
-    }
+    for (auto& move: move_hist)
+		make_move(move);
 }
 
-piece_t* board_t::get_piece(int rank, int file)
+piece_t* board_t::get_piece(int rank, int file) const
 {
     return board[rank][file];
 }
@@ -241,71 +128,15 @@ bool board_t::in_check(bool color) const {
 }
 
 // Works as long as we are guaranteed that the move is a pseudo-legal move from get_available_moves
-bool board_t::check_move(move_t* move){
-    piece_t* piece = get_piece(move->from_rank, move->from_file);
-    piece_t* destination = get_piece(move->to_rank, move->to_file);
+bool board_t::check_move(const move_t move){
 
-    int fr = move->from_rank, ff = move->from_file;
-    int tr = move->to_rank, tf = move->to_file;
+	piece_t* piece = get_piece(move.from_rank, move.from_file);
 
-    if (!piece)
-        return false; // No piece at source
-
-    // Handle castling move
-    bool is_castle = piece && piece->symbol == 'K' && std::abs(tf - ff) == 2;
-    piece_t* rook = nullptr;
-    int rook_from_f = -1, rook_to_f = -1;
-    if (is_castle) {
-        if (!piece->color && fr == 7) {           // white
-            if (tf > ff) { rook_from_f = 7; rook_to_f = 5; } // king-side
-            else         { rook_from_f = 0; rook_to_f = 3; } // queen-side
-        } else if (piece->color && fr == 0) {     // black
-            if (tf > ff) { rook_from_f = 7; rook_to_f = 5; }
-            else         { rook_from_f = 0; rook_to_f = 3; }
-        }
-        if (rook_from_f != -1) rook = board[fr][rook_from_f];
-    }
-
-    // Check for en passant
-    bool is_en_passant = piece->symbol == 'P' && ep_rank == tr 
-                        && ep_file == tf && std::abs(tf - ff) == 1 
-                        && (tr - fr == (piece->color ? 1 : -1))
-                        && destination == nullptr;
-
-    // simulate
-    piece_t* captured = destination;
-
-    // Make the move
-    board[tr][tf] = piece;
-    board[fr][ff] = nullptr;
-
-    // Remove the captured pawn if en passant
-    piece_t* ep_captured = nullptr;
-    if (is_en_passant) {
-        ep_captured = board[fr][tf];
-        board[fr][tf] = nullptr;
-    }
-
-    // Move the rook if castling
-    if (is_castle && rook) {
-        board[fr][rook_to_f] = rook;
-        board[fr][rook_from_f] = nullptr;
-    }
+	make_move(move);
 
     bool self_in_check = in_check(piece->color);
 
-    // Undo the move
-    board[fr][ff] = piece;
-    board[tr][tf] = captured;
-
-    // Restore the captured pawn if en passant
-    if (is_en_passant) board[fr][tf] = ep_captured;
-
-    // Restore the rook if castling
-    if (is_castle && rook) {
-        board[fr][rook_from_f] = rook;
-        board[fr][rook_to_f] = nullptr;
-    }
+	undo_move(move);
 
     return !self_in_check;
 }
@@ -319,11 +150,153 @@ std::vector <move_t> board_t::get_legal_moves(){
 				// Start with pseudo_legal moves returned by get_available_moves (method of piece_t)
 				std::vector <move_t> pseudo_legal = p->get_available_moves(this, rank, file); 
 				for(auto& move : pseudo_legal){ // Check all pseudo_legal moves in the current configuration of the board (method of board_t)
-					if(check_move(&move))
+					if(check_move(move))
 						legal.push_back(move);
 				}
 			}
 		}
 	}
     return legal;
+}
+
+// Assuming verified legal move
+void board_t::make_move(const move_t move){
+    int tr = move.to_rank; 
+    int tf = move.to_file;
+    int fr = move.from_rank;
+    int ff = move.from_file;
+
+	// initialise new params with previous values
+	params_t params = param_stack.back();
+
+	// reset necessary params
+	params.ep_rank = -1;
+	params.ep_file = -1;
+	params.ep_played = false;
+
+	// move piece and capture
+	piece_t* piece = board[fr][ff];
+	params.captured = board[tr][tf];
+
+    // Make the move
+    board[tr][tf] = board[fr][ff]; 
+    board[fr][ff] = nullptr;
+
+	// Record last moved pawn eligible for en passant
+	if (piece->symbol == 'P' && std::abs(tr - fr) == 2) {
+		params.ep_rank = fr + (piece->color ? 1 : -1);  // square jumped over
+		params.ep_file = ff;
+	}	
+
+	// Handle en passant capture, as we cannot know if the move is en passent or not without the current board configuration
+	if (piece->symbol == 'P' && params.captured == nullptr &&
+	std::abs(tf - ff) == 1 && (tr - fr == (piece->color ? 1 : -1))) {
+		int cap_r = fr;      // same rank as pawn started
+		int cap_f = tf;      // file it moved into
+		piece_t* ep_pawn = board[cap_r][cap_f];
+		if (ep_pawn && ep_pawn->symbol == 'P' && ep_pawn->color != piece->color) {
+			params.ep_played = true;
+			params.captured = ep_pawn;
+			board[cap_r][cap_f] = nullptr; // remove the captured pawn
+		}
+	}
+
+    // Promotion 
+    if (move.promotion){
+        if (turn == 0){ // White
+            switch(move.promotion){
+            case 'q': board[tr][tf] = pieces[QUEEN_W]; break;
+            case 'r': board[tr][tf] = pieces[ROOK_W]; break;
+            case 'k': board[tr][tf] = pieces[KNIGHT_W]; break;
+            case 'b': board[tr][tf] = pieces[BISHOP_W]; break;
+            }
+        }
+        else{ // Black
+            switch(move.promotion){
+            case 'q': board[tr][tf] = pieces[QUEEN_B]; break;
+            case 'r': board[tr][tf] = pieces[ROOK_B]; break;
+            case 'k': board[tr][tf] = pieces[KNIGHT_B]; break;
+            case 'b': board[tr][tf] = pieces[BISHOP_B]; break;
+            }
+        }
+    }
+    else if (piece->symbol == 'K' && std::abs(tf - ff) == 2) { // Move the rook if castling
+        int rook_from_f = -1, rook_to_f = -1;
+
+		if (!piece->color && fr == 7) {           // white
+            if (tf > ff) { rook_from_f = 7; rook_to_f = 5; } // king-side
+            else         { rook_from_f = 0; rook_to_f = 3; } // queen-side
+        } else if (piece->color && fr == 0) {     // black
+            if (tf > ff) { rook_from_f = 7; rook_to_f = 5; }
+            else         { rook_from_f = 0; rook_to_f = 3; }
+        }
+
+        board[fr][rook_to_f] = board[fr][rook_from_f];
+        board[fr][rook_from_f] = nullptr;
+    }
+	
+	// if king has moved we can no longer castle
+    if (piece->symbol == 'K')
+        if (!piece->color)
+            params.WK_castle = params.WQ_castle = false;
+        else
+            params.BK_castle = params.BQ_castle = false;
+	
+	// if rook has moved we can no longer castle
+    if (piece->symbol == 'R')
+        if (!piece->color)
+            if (tf > ff) params.WK_castle = false;
+            else params.WQ_castle = false;
+        else 
+            if (tf > ff) params.BK_castle = false;
+            else params.BQ_castle = false;
+
+	// update the turn
+	turn = 1 - turn;
+
+	// update params
+	param_stack.push_back(params);
+}
+
+void board_t::undo_move(const move_t move){
+    int tr = move.to_rank; 
+    int tf = move.to_file;
+    int fr = move.from_rank;
+    int ff = move.from_file;
+
+	// pop parameters from the last board state
+	params_t params = param_stack.back();
+	param_stack.pop_back();
+
+    piece_t* piece = get_piece(tr, tf);
+
+	// Undo the move
+    board[fr][ff] = piece;
+
+	// put back captured pieces
+	if(!params.ep_played)
+		board[tr][tf] = params.captured;
+	else
+		board[fr][tf] = params.captured;
+
+	// if undoing castling, move the rook back
+	if(piece->symbol == 'K' && std::abs(tf - ff) == 2)
+	{
+		int rook_from_f = -1, rook_to_f = -1;
+
+        if (!piece->color && fr == 7) {           // white
+            if (tf > ff) { rook_from_f = 7; rook_to_f = 5; } // king-side
+            else         { rook_from_f = 0; rook_to_f = 3; } // queen-side
+        } else if (piece->color && fr == 0) {     // black
+            if (tf > ff) { rook_from_f = 7; rook_to_f = 5; }
+            else         { rook_from_f = 0; rook_to_f = 3; }
+        }
+
+		// move back the rook
+        board[fr][rook_from_f] = board[fr][rook_to_f];
+        board[fr][rook_to_f] = nullptr;
+	}
+
+	// undo the turn
+	turn = 1 - turn;
 }
