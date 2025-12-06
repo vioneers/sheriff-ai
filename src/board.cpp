@@ -22,7 +22,9 @@ board_t::board_t() { // init an empty board
 
 	piece_t* captured = nullptr;
 
-	param_stack.emplace_back(WK_castle, WQ_castle, BK_castle, BQ_castle, ep_rank, ep_file, ep_played, captured);
+    params_t params {WK_castle, WQ_castle, BK_castle, BQ_castle, ep_rank, ep_file, ep_played, captured};
+
+	param_stack.push_back(params);
 }
 
 board_t::board_t(std::array <piece_t*, 12> pieces): board_t(){ // init board with inital piece placement
