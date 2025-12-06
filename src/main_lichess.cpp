@@ -13,13 +13,13 @@ using namespace std;
 
 static string compute_bestmove(const vector<move_t>& move_hist) {
     engine_t engine(move_hist);
-    vector<move_t> legal = engine.board_state.get_legal_moves();
 
-    if (legal.empty()) return "0000";
-    
-    static std::mt19937 rng(std::random_device{}());
-    std::uniform_int_distribution<size_t> dist(0, legal.size() - 1);
-    return legal[dist(rng)].to_code();
+    if(move_hist.size() % 2 == 0)
+		engine.alphaBetaMax(-1e9, 1e9, 5);
+	else
+		engine.alphaBetaMin(-1e9, 1e9, 5);
+
+    return engine.best_move.to_code();
 }
 
 int main() {
