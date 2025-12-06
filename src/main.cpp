@@ -33,9 +33,9 @@ int main(int argc, char* argv[])
 	// if playing White, you are maximizing, elese minimize
 	// TODO: make it so we always maximize
 	if(move_hist.size() % 2 == 0)
-		engine.alphaBetaMax(-1e9, 1e9, 5);
+		cout << engine.alphaBetaMax(-1e9, 1e9, 5);
 	else
-		engine.alphaBetaMin(-1e9, 1e9, 5);
+		cout << engine.alphaBetaMin(-1e9, 1e9, 5);
 	write_move(engine.best_move, out_file_name);
 
     return 0;

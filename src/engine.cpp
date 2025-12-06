@@ -52,7 +52,7 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root){
         int score = alphaBetaMin (alpha, beta, depth_left - 1, false);
         board_state.undo_move(move);
         
-        if (score  > best){
+        if (score >= best){
             if (is_root) 
                 best_move = move;
             best = score;
@@ -74,7 +74,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root){
         int score = alphaBetaMax (alpha, beta, depth_left - 1, false);
         board_state.undo_move(move);
         
-        if (score  < best){
+        if (score <= best){
             if (is_root) 
                 best_move = move;
             best = score;
