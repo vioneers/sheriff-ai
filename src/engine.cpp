@@ -5,9 +5,11 @@
 #include "evaluationbar.h"
 
 constexpr int INF = std::numeric_limits<int>::max();
+constexpr int MATE_SCORE = 1000000;
 
 engine_t::engine_t(std::vector<move_t> move_hist)
     : best_move("e2e4"), // placeholder value 
+      best_move_valid(false),
 	  pawn_w(false),
       rook_w(false),
       knight_w(false),
@@ -47,14 +49,25 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root){
         return evaluate(); 
     int best = -INF;
     std::vector <move_t> legal = board_state.get_legal_moves(); 
+    if (legal.empty()){
+        if (is_root)
+            best_move_valid = false;
+        return board_state.in_check(board_state.turn) ? -MATE_SCORE + depth_left : 0; // checkmate or stalemate
+    }
+    if (is_root){
+        best_move = legal.front();
+        best_move_valid = true;
+    }
     for (auto& move: legal){
         board_state.make_move(move);
         int score = alphaBetaMin (alpha, beta, depth_left - 1, false);
         board_state.undo_move(move);
         
         if (score >= best){
-            if (is_root) 
+            if (is_root){
                 best_move = move;
+                best_move_valid = true;
+            }
             best = score;
             if (score > alpha)
                 alpha = score; 
@@ -69,14 +82,25 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root){
         return -evaluate(); 
     int best = INF;
     std::vector <move_t> legal = board_state.get_legal_moves(); 
+    if (legal.empty()){
+        if (is_root)
+            best_move_valid = false;
+        return board_state.in_check(board_state.turn) ? MATE_SCORE - depth_left : 0; // checkmate or stalemate
+    }
+    if (is_root){
+        best_move = legal.front();
+        best_move_valid = true;
+    }
     for (auto& move: legal){
         board_state.make_move(move);
         int score = alphaBetaMax (alpha, beta, depth_left - 1, false);
         board_state.undo_move(move);
         
         if (score <= best){
-            if (is_root) 
+            if (is_root){
                 best_move = move;
+                best_move_valid = true;
+            }
             best = score;
             if (score < beta)
                 beta = score; 

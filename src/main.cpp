@@ -32,10 +32,18 @@ int main(int argc, char* argv[])
 	
 	// if playing White, you are maximizing, elese minimize
 	// TODO: make it so we always maximize
+    int score = 0;
 	if(move_hist.size() % 2 == 0)
-		cout << engine.alphaBetaMax(-1e9, 1e9, 5);
+		score = engine.alphaBetaMax(-1e9, 1e9, 5);
 	else
-		cout << engine.alphaBetaMin(-1e9, 1e9, 5);
+		score = engine.alphaBetaMin(-1e9, 1e9, 5);
+    // cout << score;
+
+    if(!engine.best_move_valid){
+        std::ofstream outFile(out_file_name);
+        outFile.close(); // leave empty to signal no legal moves
+        return 0;
+    }
 	write_move(engine.best_move, out_file_name);
 
     return 0;

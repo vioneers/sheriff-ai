@@ -8,6 +8,7 @@ struct engine_t {
 	board_t board_state; 	
 	std::array<piece_t*, PIECE_COUNT> pieces;
     move_t best_move; 
+    bool best_move_valid;
 
     // Piece objects
     pawn_t   pawn_w;
