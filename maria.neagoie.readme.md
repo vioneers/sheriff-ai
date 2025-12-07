@@ -11,3 +11,7 @@
 - Combined all components in main.cpp, outputing the first entry of the legal moves vector
 - Minor fixes in piece_t and move_t
 - Implemented AlphaBeta algorithm
+
+## Week 3
+- Implemented Perft algorithm to check the number of generated legal moves is accurate
+- Added timing to ensure no time-out. If close to time-out, output random move for now.

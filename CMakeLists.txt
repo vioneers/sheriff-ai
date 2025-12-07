@@ -20,3 +20,9 @@ add_executable(sheriff_ai_lichess
     src/main_lichess.cpp
     ${ENGINE_SOURCES}
 )
+
+
+add_executable(sheriff_ai_perft
+    src/perft.cpp
+    ${ENGINE_SOURCES}
+)
