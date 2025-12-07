@@ -1,6 +1,7 @@
 #ifndef __ENGINE__
 #define __ENGINE__
 
+#include <chrono>
 #include "board.h"
 #include "piece.h"
 
@@ -9,6 +10,11 @@ struct engine_t {
 	std::array<piece_t*, PIECE_COUNT> pieces;
     move_t best_move; 
     bool best_move_valid;
+
+    // Timing (to ensure within 10 seconds)
+    std::chrono::steady_clock::time_point start_time;
+    std::chrono::milliseconds time_limit{0};
+    bool time_up = false;
 
     // Piece objects
     pawn_t   pawn_w;

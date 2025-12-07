@@ -274,6 +274,7 @@ void board_t::undo_move(const move_t move){
 
 	// Undo the move
     board[fr][ff] = piece;
+    board[tr][tf] = nullptr;
 
 	// put back captured pieces
 	if(!params.ep_played)

@@ -23,7 +23,7 @@ std::vector<move_t> king_t :: get_available_moves(board_t* board, int rank, int 
         piece_t* destination = board->get_piece(new_rank, new_file);
 
         // Destination is empty => possible move OR Can capture the opponent's piece 
-        if (destination == nullptr || destination->color != this->color)
+        if (destination == nullptr || (destination->color != this->color && destination->symbol != 'K'))
             moves.emplace_back(rank, file, new_rank, new_file);
     }
 
@@ -108,7 +108,7 @@ std::vector<move_t> knight_t :: get_available_moves(board_t* board, int rank, in
         piece_t* destination = board->get_piece(new_rank, new_file);
 
         // Destination is empty => possible move OR Can capture the opponent's piece 
-        if (destination == nullptr || destination->color != this->color)
+        if (destination == nullptr || (destination->color != this->color && destination->symbol != 'K'))
             moves.emplace_back(rank, file, new_rank, new_file);
     }
 
@@ -135,7 +135,7 @@ std::vector<move_t> rook_t :: get_available_moves(board_t* board, int rank, int 
             if (destination == nullptr)
                 moves.emplace_back(rank, file, new_rank, new_file);
             else{
-                if (destination->color != this->color) // Capture opponent's piece
+                if (destination->color != this->color && destination->symbol != 'K') // Capture opponent's piece
                     moves.emplace_back(rank, file, new_rank, new_file);
                 break; // If we captured or can no longer pass, we stop
             }
@@ -168,7 +168,7 @@ std::vector<move_t> bishop_t :: get_available_moves(board_t* board, int rank, in
             if (destination == nullptr)
                 moves.emplace_back(rank, file, new_rank, new_file);
             else{
-                if (destination->color != this->color) // Capture opponent's piece
+                if (destination->color != this->color && destination->symbol != 'K') // Capture opponent's piece
                     moves.emplace_back(rank, file, new_rank, new_file);
                 break; // If we captured or can no longer pass, we stop
             }
@@ -202,7 +202,7 @@ std::vector<move_t> queen_t :: get_available_moves(board_t* board, int rank, int
             if (destination == nullptr)
                 moves.emplace_back(rank, file, new_rank, new_file);
             else{
-                if (destination->color != this->color) // Capture opponent's piece
+                if (destination->color != this->color && destination->symbol != 'K') // Capture opponent's piece
                     moves.emplace_back(rank, file, new_rank, new_file);
                 break; // If we captured or can no longer pass, we stop
             }
@@ -270,7 +270,7 @@ std::vector<move_t> pawn_t :: get_available_moves(board_t* board, int rank, int 
         {
             piece_t* destination = board->get_piece(new_rank, new_file);
             // Need opponent piece, not empty
-            if (destination != nullptr && destination->color != this->color)
+            if (destination != nullptr && (destination->color != this->color && destination->symbol != 'K'))
             {
                 if (new_rank == promotion_rank){
                     for (char promo : promos) {

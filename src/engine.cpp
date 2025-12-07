@@ -87,8 +87,14 @@ int engine_t::evaluate(){
 }
 
 int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root){
-    if (depth_left == 0)
-        return evaluate(); 
+    using clock = std::chrono::steady_clock;
+
+    if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
+        time_up = true;
+
+    if (time_up || depth_left == 0) 
+        return evaluate();
+
     int best = -INF;
 
     std::vector <move_t> legal = board_state.get_legal_moves(); 
@@ -125,8 +131,14 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root){
     return best;
 }
 int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root){
-    if (depth_left == 0)
-        return -evaluate(); 
+    using clock = std::chrono::steady_clock;
+
+    if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
+        time_up = true;
+        
+    if (time_up || depth_left == 0) 
+        return -evaluate();
+
     int best = INF;
 
     std::vector <move_t> legal = board_state.get_legal_moves(); 
