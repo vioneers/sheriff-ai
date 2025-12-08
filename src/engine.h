@@ -6,15 +6,22 @@
 #include "piece.h"
 
 struct engine_t {
+    static const int MAX_DEPTH = 64;
+
 	board_t board_state; 	
 	std::array<piece_t*, PIECE_COUNT> pieces;
     move_t best_move; 
     bool best_move_valid;
+    int search_depth = 0;
 
     // Timing (to ensure within 10 seconds)
     std::chrono::steady_clock::time_point start_time;
     std::chrono::milliseconds time_limit{0};
     bool time_up = false;
+
+    // Move-ordering heuristics
+    move_t killer_moves[MAX_DEPTH][2];
+    int history_table[64][64]{};
 
     // Piece objects
     pawn_t   pawn_w;
@@ -38,6 +45,8 @@ struct engine_t {
     int evaluate(); 
     int alphaBetaMax(int alpha, int beta, int depth_left, bool is_root = true);
     int alphaBetaMin(int alpha, int beta, int depth_left, bool is_root = true);
+
+    int move_order_score(const move_t& m, int ply);
 };
 
 #endif

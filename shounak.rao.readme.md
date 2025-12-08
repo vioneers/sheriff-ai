@@ -12,4 +12,6 @@ Additions :
 - Implemented castling and en passant generation and validation/replay.
 - Set up lichess bot to play using our engine by splitting the entrypoints and adding a separate build target `sheriff_ai_lichess` for the bot.
 - Set up UCI control and parsing so lichess bot can use the engine via the sheriff_ai_lichess target.
-
+## Week 3
+- `move_order_score()` - Computes the priority score of a move, helps in ordering legal moves before looping through them in Alpha-Beta.
+- Modified Alpha-beta min/max to modify killer_moves and history tables whenever beta threshold is surpassed. Both tables are heurisitics that again help in ordering legal moves before the loop.
