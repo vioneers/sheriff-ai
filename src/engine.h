@@ -1,13 +1,10 @@
-#ifndef __ENGINE__
-#define __ENGINE__
+#pragma once
 
 #include <chrono>
 #include "board.h"
-#include "piece.h"
 
 struct engine_t {
 	board_t board_state; 	
-	std::array<piece_t*, PIECE_COUNT> pieces;
     move_t best_move; 
     bool best_move_valid;
 
@@ -15,21 +12,6 @@ struct engine_t {
     std::chrono::steady_clock::time_point start_time;
     std::chrono::milliseconds time_limit{0};
     bool time_up = false;
-
-    // Piece objects
-    pawn_t   pawn_w;
-    rook_t   rook_w;
-    knight_t knight_w;
-    bishop_t bishop_w;
-    queen_t  queen_w;
-    king_t   king_w;
-
-    pawn_t   pawn_b;
-    rook_t   rook_b;
-    knight_t knight_b;
-    bishop_t bishop_b;
-    queen_t  queen_b;
-    king_t   king_b;
 
 	engine_t(std::vector <move_t> move_hist);
 
@@ -39,5 +21,3 @@ struct engine_t {
     int alphaBetaMax(int alpha, int beta, int depth_left, bool is_root = true);
     int alphaBetaMin(int alpha, int beta, int depth_left, bool is_root = true);
 };
-
-#endif

@@ -3,22 +3,53 @@
 
 move_t::move_t(const std::string& code)
 {
-	from_file = code[0] - 'a';
-	to_file = code[2] - 'a';
-	from_rank = 8 - (code[1] - '0');
-    to_rank   = 8 - (code[3] - '0');
-    promotion = 0;
+    int flags = QUIET; // Since we don't have access to the board state, assume move is quiet
+	
+	int to_rank = code[3] - '1';
+	int to_file = code[2] - 'a';
+	int to_sq   = to_rank*8 + to_file; 
+
+	int from_rank = code[1] - '1';
+	int from_file = code[0] - 'a';
+	int from_sq   = from_rank*8 + from_file;
+
 	if(code.size() == 5)
-		promotion = code[4];
+		switch (code[4])
+		{
+            case 'q':
+                return PROMO_Q;
+            case 'r':
+                return PROMO_R;
+            case 'b':
+                return PROMO_B;
+            case 'n':
+                return PROMO_N;
+        }
 }
 
 std::string move_t::to_code()
 {
-	std::string from = std::string("") + (char)('a' + from_file) + (char)('0' + (8 - from_rank));
-	std::string to = std::string("") + (char)('a' + to_file) + (char)('0' + (8 - to_rank));
-	if (promotion != 0) // Fix to not have a NULL at the end of the line if no promotion
-		return from + to + promotion;
-	return from + to; 
+	int from_sq = from();
+	int to_sq = to();
+
+	std::string from = std::string("") + (char)('a' + from_sq%8) + (char)('1' + from_sq/8);
+	std::string to = std::string("") + (char)('a' + to_sq%8) + (char)('1' + to_sq/8);
+
+	std::string code = from + to
+	
+	switch(flag())
+	{
+		case PROMO_Q:
+			return code += "q";
+		case PROMO_R:
+			return code += "r";
+		case PROMO_B:
+			return code == "b";
+		case PROMO_N:
+			return code += "n";
+	}
+	
+	return code;
 }
 
 

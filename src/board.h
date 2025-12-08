@@ -1,59 +1,40 @@
-#ifndef __BOARD__
-#define __BOARD__
-#include <vector> 
-#include <array>
+#pragma once
 
-struct move_t;
-struct piece_t;
+#include <string>
+#include "types.h"
 
-struct params_t {
-	bool WK_castle;
-	bool WQ_castle;
-	bool BK_castle;
-	bool BQ_castle;
-
-	// if a pawn that moved last turn is vulnerable to en passant, store the position where an oposing pawn should move to perform en passant.
-	int ep_rank;
-	int ep_file;
-
-	// was en passant played
-	bool ep_played;	
-
-	// hold the piece captured at each turn.
-	piece_t* captured;
+struct state_t {
+    uint64_t z_key;          // Zobrist hash for Transposition Table //TODO
+    int castling_rights;     // Bitmask (4 bits for KQkq)
+    int ep_square;           // En passant target square
+    int captured;			 // last piece to be captured
 };
 
 struct board_t {
-	piece_t* board[8][8];
-	bool turn; // White = false; Black = true
+    Bitboard pieces[6];   // [PieceType]
+    Bitboard occupancy[3];   // [White, Black, Both]
+    PieceType mailbox[64]; // Get pieces by board position (positive values for WHITE, negative for BLACK)
+	Color turn; // BLACK / WHITE
 
-	std::vector <params_t> param_stack;
-	std::array <piece_t*, 12> pieces;
+    // History stack for unmake_move
+    std::vector<GameState> history;
 
-	//bool WK_castle;
-	//bool WQ_castle;
-	//bool BK_castle;
-	//bool BQ_castle;
+	board_t(std::string fen);
+	board_t(std::vector <move_t> move_hist);
 
-	// if a pawn that moved last turn is vulnerable to en passant, store the position where an oposing pawn should move to perform en passant.
-	//int ep_rank;
-	//int ep_file;
 	
-	board_t();
-	board_t(std::array <piece_t*, 12> pieces); 
-	board_t(std::vector <move_t> move_hist, std::array <piece_t*, 12> pieces); 
 
-	bool check_move(const move_t move);
-	piece_t* get_piece(int rank, int file) const;
+	// generate moves and upadte move list
+	void get_legal_moves();
+	void add
 
-	bool check_in_between(int fr, int ff, int tr, int tf) const;
-	bool square_attacked(int r, int f, bool by_color) const;
-	bool in_check(bool color) const;
 
-	std::vector <move_t> get_legal_moves();
+	// get pseudolegal moves
+	
 
-	void make_move(const move_t move);
-	void undo_move(const move_t move);
+    bool make_move(move_t m); // return False if fail
+    void undo_move(move_t m);
+	
+	// other utils
+	std::string to_fen() const;
 };
-
-#endif
