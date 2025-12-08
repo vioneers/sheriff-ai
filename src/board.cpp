@@ -2,8 +2,6 @@
 
 board_t::board_t()
 {
-	turn = WHITE;
-
 	Bitboard rank1 = (1ULL<<8) - 1;
 
 	pieces[PAWN]   = (rank1 << 8) | (rank1 << (8*6)); 
@@ -40,7 +38,7 @@ board_t::board_t()
         }
     }
 
-	state_t init{0, (1<<4)-1, -1, NONE}; // z_key, castling_rights, ep_square, captured
+	state_t init{0, (1<<4)-1, -1, NONE, WHITE}; // z_key, castling_rights, ep_square, captured, turn
 	history.push_back{init};
 }
 

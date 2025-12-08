@@ -10,13 +10,13 @@ struct state_t {
     int castling_rights;     // Bitmask (4 bits for KQkq)
     int ep_square;           // En passant target square
     int captured;			 // last piece to be captured
+	Color turn; // BLACK / WHITE
 };
 
 struct board_t {
     Bitboard pieces[6];   // [PieceType]
     Bitboard occupancy[3];   // [White, Black, Both]
     PieceType mailbox[64]; // Get pieces by board position (positive values for WHITE, negative for BLACK)
-	Color turn; // BLACK / WHITE
 
     // History stack for unmake_move
     std::vector<GameState> history;
