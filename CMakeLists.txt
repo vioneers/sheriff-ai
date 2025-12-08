@@ -21,8 +21,30 @@ add_executable(sheriff_ai_lichess
     ${ENGINE_SOURCES}
 )
 
-
 add_executable(sheriff_ai_perft
     src/perft.cpp
     ${ENGINE_SOURCES}
 )
+
+target_compile_definitions(sheriff_ai
+    PRIVATE
+	    # If the debug configuration pass the DEBUG define to the compiler
+        $<$<CONFIG:Debug>:DEBUG>
+)
+
+target_compile_definitions(sheriff_ai_lichess
+    PRIVATE
+	    # If the debug configuration pass the DEBUG define to the compiler
+        $<$<CONFIG:Debug>:DEBUG>
+)
+
+target_compile_definitions(sheriff_ai_perft
+    PRIVATE
+	    # If the debug configuration pass the DEBUG define to the compiler
+        $<$<CONFIG:Debug>:DEBUG>
+)
+
+# use 
+# cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+# cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+# to switch between debug and release modes
