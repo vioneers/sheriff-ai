@@ -1,7 +1,9 @@
 #pragma once
 
 #include <string>
+#include <vector>
 #include "types.h"
+#include "move.h"
 
 struct state_t {
     uint64_t z_key;          // Zobrist hash for Transposition Table //TODO
@@ -22,15 +24,24 @@ struct board_t {
 	board_t(std::string fen);
 	board_t(std::vector <move_t> move_hist);
 
-	
+	// check detection
+	bool square_attacked(int sq, Color by_color) const;
+	bool in_check(Color by_color) const;
 
-	// generate moves and upadte move list
-	void get_legal_moves();
-	void add
+	// generate legal moves and add to list
+	void get_legal_moves(std::vector<move_t> &list);
 
+	// verify that move is actually legal and add to list
+	void add_move(std::vector<move_t> &list, move_t move);
 
-	// get pseudolegal moves
-	
+	// get pseudolegal moves (implemented in pieces.cpp)
+	template<Color Us> void generate_pawn_moves(MoveList& list);
+    template<Color Us> void generate_knight_moves(MoveList& list);
+	template<Color Us> void generate_king_moves(MoveList& list);
+
+	template<Color Us> void generate_queen_moves(MoveList& list);
+	template<Color Us> void generate_rook_moves(MoveList& list);
+    template<Color Us> void generate_bishop_moves(MoveList& list);
 
     bool make_move(move_t m); // return False if fail
     void undo_move(move_t m);
