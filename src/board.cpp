@@ -62,6 +62,7 @@ void make_move(move_t m){
 	// make move
 	// update mailbox
 	// push to params stack
+	// update flags in move object so that we can then use them for unmake move?
 }
 
 void undo_move(move_t m)
