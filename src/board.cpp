@@ -300,6 +300,11 @@ void board_t::undo_move(const move_t move){
         board[fr][rook_to_f] = nullptr;
 	}
 
+    if (move.promotion){
+        // revert promoted piece back to pawn
+        board[fr][ff] = piece->color ? pieces[PAWN_B] : pieces[PAWN_W];
+    }
+
 	// undo the turn
 	turn = 1 - turn;
 }
