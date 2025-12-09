@@ -20,16 +20,6 @@ static string compute_bestmove(const vector<move_t>& move_hist) {
     engine.time_limit = std::chrono::milliseconds(9000); // ~9 seconds
     engine.time_up = false;
 
-    vector<move_t> legal = engine.board_state.get_legal_moves();
-    if (!legal.empty()){ // If we time out, fall back to a random legal move
-		std::mt19937 rng(std::random_device{}());
-		std::uniform_int_distribution<int> dist(0, (int)legal.size() - 1);
-		engine.best_move = legal[dist(rng)];
-		engine.best_move_valid = true;
-	} else {
-        engine.best_move_valid = false;
-    }
-
     if(move_hist.size() % 2 == 0)
 		engine.alphaBetaMax(-1e9, 1e9, 5);
 	else

@@ -36,18 +36,7 @@ int main(int argc, char* argv[])
 	engine.time_limit = std::chrono::milliseconds(9000);  // ~9 seconds
 	engine.time_up = false;
 
-	vector<move_t> legal = engine.board_state.get_legal_moves();
-	if (!legal.empty()){ // In case we're close to a timeout, just output a random legal move for now
-		std::mt19937 rng(std::random_device{}());
-		std::uniform_int_distribution<int> dist(0, (int)legal.size() - 1);
-		engine.best_move = legal[dist(rng)];
-		engine.best_move_valid = true;
-	}
-	else
-		engine.best_move_valid = false;
-
 	// if playing White, you are maximizing, else minimize
-	// TODO: make it so we always maximize
     int score = 0;
 	if(move_hist.size() % 2 == 0)
 		score = engine.alphaBetaMax(-1e9, 1e9, 5);
