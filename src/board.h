@@ -19,7 +19,7 @@ struct board_t {
     PieceType mailbox[64]; // Get pieces by board position (positive values for WHITE, negative for BLACK)
 
     // History stack for unmake_move
-    std::vector<GameState> history;
+    std::vector<state_t> history;
 
 	board_t(std::string fen);
 	board_t(std::vector <move_t> move_hist);
@@ -35,13 +35,13 @@ struct board_t {
 	void add_move(std::vector<move_t> &list, move_t move);
 
 	// get pseudolegal moves (implemented in pieces.cpp)
-	template<Color Us> void generate_pawn_moves(MoveList& list);
-    template<Color Us> void generate_knight_moves(MoveList& list);
-	template<Color Us> void generate_king_moves(MoveList& list);
+	template<Color Us> void generate_pawn_moves(vector<move_t> &list);
+    template<Color Us> void generate_knight_moves(vector<move_t> &list);
+	template<Color Us> void generate_king_moves(vector<move_t> &list);
 
-	template<Color Us> void generate_queen_moves(MoveList& list);
-	template<Color Us> void generate_rook_moves(MoveList& list);
-    template<Color Us> void generate_bishop_moves(MoveList& list);
+	template<Color Us> void generate_queen_moves(vector<move_t> &list);
+	template<Color Us> void generate_rook_moves(vector<move_t> &list);
+    template<Color Us> void generate_bishop_moves(vector<move_t> &list);
 
     bool make_move(move_t m); // return False if fail
     void undo_move(move_t m);
