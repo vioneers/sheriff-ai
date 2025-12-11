@@ -1,3 +1,5 @@
+#pragma once
+
 #include "types.h"
 
 // Utilities for bitborads
@@ -10,23 +12,22 @@ uint64_t shift(uint64_t bb) {
     else return bb >> (-Shift);
 }
 
-// We use constexpr to evaluate at compile time and not runtime
-constexpr Bitboard[8] RankMasks = {
-	Bitboard[8] arr;
-	Bitboard rank1 = (1ULL << 8) - 1;
-	
-	for(int i=0; i<8; ++i)
-		arr[i] = rank1 << (8 * i);
+const Bitboard RANK_1 = 0x00000000000000FFULL;
+const Bitboard RANK_2 = 0x000000000000FF00ULL;
+const Bitboard RANK_3 = 0x0000000000FF0000ULL;
+const Bitboard RANK_4 = 0x00000000FF000000ULL;
+const Bitboard RANK_5 = 0x000000FF00000000ULL;
+const Bitboard RANK_6 = 0x0000FF0000000000ULL;
+const Bitboard RANK_7 = 0x00FF000000000000ULL;
+const Bitboard RANK_8 = 0xFF00000000000000ULL;
 
-	return arr;
-}
+const Bitboard FILE_A = 0x0101010101010101ULL;
+const Bitboard FILE_B = 0x0202020202020202ULL;
+const Bitboard FILE_C = 0x0404040404040404ULL;
+const Bitboard FILE_D = 0x0808080808080808ULL;
+const Bitboard FILE_E = 0x1010101010101010ULL;
+const Bitboard FILE_F = 0x2020202020202020ULL;
+const Bitboard FILE_G = 0x4040404040404040ULL;
+const Bitboard FILE_H = 0x8080808080808080ULL;
 
-constexpr Bitboard[8] FileMasks = {
-	Bitboard[8] arr;
-	
-	for(int i=0; i<8; ++i)
-		for(int j=0; j<8; ++j)
-			arr[i] |= 1ULL << (8*j + i);
 
-	return arr;
-}
