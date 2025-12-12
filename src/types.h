@@ -1,7 +1,7 @@
 #include <cstdint>
 
 // Bitboard type
-using Bitboard uint64_t;
+using Bitboard = uint64_t;
 
 // Define the Piece Types for reference
 enum PieceType { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, NONE };

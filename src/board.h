@@ -35,13 +35,13 @@ struct board_t {
 	void add_move(std::vector<move_t> &list, move_t move);
 
 	// get pseudolegal moves (implemented in pieces.cpp)
-	template<Color Us> void generate_pawn_moves(vector<move_t> &list);
-    template<Color Us> void generate_knight_moves(vector<move_t> &list);
-	template<Color Us> void generate_king_moves(vector<move_t> &list);
+	template<Color Us> void generate_pawn_moves(std::vector<move_t> &list);
+    template<Color Us> void generate_knight_moves(std::vector<move_t> &list);
+	template<Color Us> void generate_king_moves(std::vector<move_t> &list);
 
-	template<Color Us> void generate_queen_moves(vector<move_t> &list);
-	template<Color Us> void generate_rook_moves(vector<move_t> &list);
-    template<Color Us> void generate_bishop_moves(vector<move_t> &list);
+	template<Color Us> void generate_queen_moves(std::vector<move_t> &list);
+	template<Color Us> void generate_rook_moves(std::vector<move_t> &list);
+    template<Color Us> void generate_bishop_moves(std::vector<move_t> &list);
 
     bool make_move(move_t m); // return False if fail
     void undo_move(move_t m);
