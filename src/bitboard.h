@@ -1,9 +1,15 @@
 #pragma once
 
-#include "types.h"
-
 // Utilities for bitborads
 // Predefined move dictionaries and magic numbers go here
+
+#include <array>
+
+#include "types.h"
+
+#ifndef MAKE_MAGIC
+#include "magic.h"
+#endif
 
 // General shift function
 template <int Shift>
@@ -12,10 +18,10 @@ uint64_t shift(uint64_t bb) {
     else return bb >> (-Shift);
 }
 
-// We use constexpr to evaluate at compile time and not runtime
-constexpr genRankMask()
+// We use consteval to force evaluate functions at compile time and not runtime
+consteval std::array<Bitboard, 8> genRankMask()
 {
-	Bitboard[8] arr;
+	std::array<Bitboard, 8> arr = {};
 	Bitboard rank1 = (1ULL << 8) - 1;
 	
 	for(int i=0; i<8; ++i)
@@ -24,9 +30,9 @@ constexpr genRankMask()
 	return arr;
 }
 
-constexpr genFileMask()
+consteval std::array<Bitboard, 8> genFileMask()
 {
-	Bitboard[8] arr;
+	std::array<Bitboard, 8> arr = {};
 	
 	for(int i=0; i<8; ++i)
 		for(int j=0; j<8; ++j)
@@ -35,5 +41,5 @@ constexpr genFileMask()
 	return arr;
 }
 
-constexpr Bitboard[8] RankMask = genRankMask();
-constexpr Bitboard[8] FileMask = genFileMask();
+constexpr std::array<Bitboard, 8> RankMask = genRankMask();
+constexpr std::array<Bitboard, 8> FileMask = genFileMask();

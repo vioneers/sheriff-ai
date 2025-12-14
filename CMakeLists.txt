@@ -3,12 +3,32 @@ project(Sheriff-AI LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 
+
+# Generate magic.h in src/
+# To force it to regenerate we have to manually remove the file.
+set(MAGIC_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/src/magic.h")
+
 set(ENGINE_SOURCES
     src/engine.cpp
     src/board.cpp
     src/piece.cpp
     src/move.cpp
 	src/evaluationbar.cpp
+	${MAGIC_HEADER}
+)
+
+
+
+# To generate ${MAGIC_HEADER} run make_magic
+add_custom_command(
+	OUTPUT ${MAGIC_HEADER}
+    COMMAND make_magic "${GENERATED_HEADER}"
+    DEPENDS make_magic
+    COMMENT "Generating magic.h in src/..."
+)
+
+add_executable(make_magic
+	src/make_magic.cpp
 )
 
 add_executable(sheriff_ai
@@ -26,20 +46,9 @@ add_executable(sheriff_ai_perft
     ${ENGINE_SOURCES}
 )
 
-target_compile_definitions(sheriff_ai
-    PRIVATE
-	    # If the debug configuration pass the DEBUG define to the compiler
-        $<$<CONFIG:Debug>:DEBUG>
-)
 
-target_compile_definitions(sheriff_ai_lichess
-    PRIVATE
-	    # If the debug configuration pass the DEBUG define to the compiler
-        $<$<CONFIG:Debug>:DEBUG>
-)
 
-target_compile_definitions(sheriff_ai_perft
-    PRIVATE
+add_compile_definitions(
 	    # If the debug configuration pass the DEBUG define to the compiler
         $<$<CONFIG:Debug>:DEBUG>
 )
