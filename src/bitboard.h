@@ -13,9 +13,8 @@
 
 // General shift function
 template <int Shift>
-uint64_t shift(uint64_t bb) {
-    if (Shift > 0) return bb << Shift;
-    else return bb >> (-Shift);
+constexpr uint64_t shift(uint64_t bb) {
+    return Shift > 0 ? bb << Shift : bb >> (-Shift);
 }
 
 // We use consteval to force evaluate functions at compile time and not runtime
@@ -43,3 +42,51 @@ consteval std::array<Bitboard, 8> genFileMask()
 
 constexpr std::array<Bitboard, 8> RankMask = genRankMask();
 constexpr std::array<Bitboard, 8> FileMask = genFileMask();
+
+inline constexpr std::array<Bitboard, 64> KnightAttacks = []() {
+    constexpr Bitboard notA  = 0xFEFEFEFEFEFEFEFEULL;
+    constexpr Bitboard notAB = 0xFCFCFCFCFCFCFCFCULL;
+    constexpr Bitboard notH  = 0x7F7F7F7F7F7F7F7FULL;
+    constexpr Bitboard notGH = 0x3F3F3F3F3F3F3F3FULL;
+
+    std::array<Bitboard, 64> table{};
+    for (int sq = 0; sq < 64; ++sq) {
+        Bitboard bb = 1ULL << sq;
+        Bitboard attacks = 0;
+
+        attacks |= (bb << 17) & notH;
+        attacks |= (bb << 15) & notA;
+        attacks |= (bb << 10) & notGH;
+        attacks |= (bb << 6)  & notAB;
+        attacks |= (bb >> 17) & notA;
+        attacks |= (bb >> 15) & notH;
+        attacks |= (bb >> 10) & notAB;
+        attacks |= (bb >> 6)  & notGH;
+
+        table[sq] = attacks;
+    }
+    return table;
+}();
+
+inline constexpr std::array<Bitboard, 64> KingAttacks = []() {
+    constexpr Bitboard notA = 0xFEFEFEFEFEFEFEFEULL;
+    constexpr Bitboard notH = 0x7F7F7F7F7F7F7F7FULL;
+
+    std::array<Bitboard, 64> table{};
+    for (int sq = 0; sq < 64; ++sq) {
+        Bitboard bb = 1ULL << sq;
+        Bitboard attacks = 0;
+
+        attacks |= (bb << 8);               // north
+        attacks |= (bb >> 8);               // south
+        attacks |= (bb << 1) & notA;        // east
+        attacks |= (bb >> 1) & notH;        // west
+        attacks |= (bb << 9) & notA;        // north-east
+        attacks |= (bb << 7) & notH;        // north-west
+        attacks |= (bb >> 9) & notH;        // south-west
+        attacks |= (bb >> 7) & notA;        // south-east
+
+        table[sq] = attacks;
+    }
+    return table;
+}();

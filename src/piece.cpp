@@ -110,15 +110,47 @@ void board_t::generate_pawn_moves(std::vector<move_t> &list)
 }
 
 template<Color Us> 
-void generate_knight_moves(MoveList& list)
+void board_t::generate_knight_moves(std::vector<move_t> &list)
 {
-	// TODO:
+	constexpr Color Them = ~Us;
+	Bitboard knights = pieces[KNIGHT] & occupancy[Us];
+	Bitboard own = occupancy[Us];
+	Bitboard their = occupancy[Them];
+
+	while (knights) {
+		int from = __builtin_ctzll(knights);
+		Bitboard moves = KnightAttacks[from] & ~own;
+		while (moves) {
+			int to = __builtin_ctzll(moves);
+			moves &= moves - 1;
+
+			bool is_capture = (their >> to) & 1ULL;
+			list.emplace_back(from, to, is_capture ? CAPTURE : QUIET);
+		}
+		knights &= knights - 1;
+	}
 }
 
 template<Color Us> 
-void generate_king_moves(MoveList& list)
+void board_t::generate_king_moves(std::vector<move_t> &list)
 {
-	// TODO:
+	constexpr Color Them = ~Us;
+	Bitboard kings = pieces[KING] & occupancy[Us];
+	Bitboard own = occupancy[Us];
+	Bitboard their = occupancy[Them];
+
+	while (kings) {
+		int from = __builtin_ctzll(kings);
+		Bitboard moves = KingAttacks[from] & ~own;
+		while (moves) {
+			int to = __builtin_ctzll(moves);
+			moves &= moves - 1;
+
+			bool is_capture = (their >> to) & 1ULL;
+			list.emplace_back(from, to, is_capture ? CAPTURE : QUIET);
+		}
+		kings &= kings - 1;
+	}
 }
 
 template<Color Us> 
