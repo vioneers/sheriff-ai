@@ -22,4 +22,5 @@ Additions :
 - Transition to bitboards :
 - Implemented move generation for pawns, knights and king using bitboard
 - Implemented `square_attacked()` to check if a square is under attack by a any piece of a given colour.
+- Implemented `in_check()` to check if a given colour is under check.
 
