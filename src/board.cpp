@@ -1,4 +1,5 @@
 #include "board.h"
+#include "bitboard.h"
 
 board_t::board_t()
 {
@@ -75,4 +76,72 @@ void undo_move(move_t m)
 std::string to_fen()
 {
 	//TODO: convert board to fen string for debugging
+}
+
+// Check if a square is attacked by any piece of the given color using bitboard rays/lookup tables
+bool board_t::square_attacked(int sq, Color by_color) const
+{
+	Bitboard target = 1ULL << sq;
+	Bitboard occ_all = occupancy[BOTH];
+	Bitboard by_occ = occupancy[by_color];
+
+	// Pawn attacks (flip directions per color)
+	Bitboard pawns = pieces[PAWN] & by_occ;
+	if (by_color == WHITE) {
+		Bitboard attacks = shift<7>(pawns & ~FileMask[0]) | shift<9>(pawns & ~FileMask[7]);
+		if (attacks & target) return true;
+	} else if (by_color == BLACK) {
+		Bitboard attacks = shift<-7>(pawns & ~FileMask[7]) | shift<-9>(pawns & ~FileMask[0]);
+		if (attacks & target) return true;
+	}
+
+	// Knight attacks (symmetric)
+	Bitboard knights = pieces[KNIGHT] & by_occ;
+	if (KnightAttacks[sq] & knights)
+		return true;
+
+	// King attacks (symmetric)
+	Bitboard kings = pieces[KING] & by_occ;
+	if (KingAttacks[sq] & kings)
+		return true;
+
+	// Sliding attacks
+	auto ray_hit = [&](int df, int dr, Bitboard sliders) -> bool {
+		int f = (sq % 8) + df;
+		int r = (sq / 8) + dr;
+		while (f >= 0 && f < 8 && r >= 0 && r < 8) {
+			int idx = r * 8 + f;
+			Bitboard bb = 1ULL << idx;
+			if (occ_all & bb)
+				return (sliders & bb) != 0;
+			f += df;
+			r += dr;
+		}
+		return false;
+	};
+
+	// Bishop and queen diagonals
+	Bitboard bishops = (pieces[BISHOP] | pieces[QUEEN]) & by_occ;
+	if (ray_hit(1, 1, bishops) || ray_hit(-1, 1, bishops) ||
+		ray_hit(1, -1, bishops) || ray_hit(-1, -1, bishops))
+		return true;
+
+	// Rook and queen orthogonals
+	Bitboard rooks = (pieces[ROOK] | pieces[QUEEN]) & by_occ;
+	if (ray_hit(0, 1, rooks) || ray_hit(0, -1, rooks) ||
+		ray_hit(1, 0, rooks) || ray_hit(-1, 0, rooks))
+		return true;
+
+	return false;
+}
+
+// Is the given color currently in check?
+bool board_t::in_check(Color color) const
+{
+	Bitboard king_bb = pieces[KING] & occupancy[color];
+	if (!king_bb)
+		return false; // king missing; treat as not in check
+
+	int king_sq = __builtin_ctzll(king_bb);
+	return square_attacked(king_sq, ~color);
 }
