@@ -1,7 +1,59 @@
 #include <cmath>
+#include <random>
 #include "board.h"
 #include "piece.h"
 #include "engine.h"
+
+uint64_t random64(uint64_t &x){ // to generate random numbers
+    static std::mt19937_64 rng(0xC0FFEE123456789ULL); 
+    return rng();
+}
+
+int base_index(char ch){
+    switch(ch){
+        case 'P': return 0;
+        case 'N': return 1;
+        case 'B': return 2; 
+        case 'R': return 3;
+        case 'Q': return 4;
+        case 'K': return 5;
+        default: return -1;
+    }
+}
+int index(piece_t* piece){
+    int base = base_index(piece->symbol);
+    if (base == -1)
+        return -1; 
+    return (piece->color ? 6 : 0) + base;
+}
+
+uint64_t Z_PSQ[12][64];
+uint64_t Z_TURN; 
+uint64_t Z_CASTLE[16];
+uint64_t Z_EPFILE[9];
+bool Z_INIT = false;
+
+void init_zobrist(){
+    if (Z_INIT)
+        return; 
+    uint64_t seed = 0xC0FFEE123456789ULL;
+
+    for (int piece = 0; piece < 12; piece++) // 12 types of pieces
+    {
+        for (int square = 0; square < 64; square++) // 64 squares on the board
+            Z_PSQ[piece][square] = random64(seed);
+    }
+    // Turn (black or white)
+    Z_TURN = random64(seed);
+
+    // Castles
+    for (int i = 0; i < 16; i++)
+        Z_CASTLE[i] = random64(seed);
+    
+    // En passant (one extra file for the no en passant case) 
+    for (int i = 0; i < 9; i++)
+        Z_EPFILE[i] = random64(seed);
+}
 
 board_t::board_t() { // init an empty board
     turn = false; // Starting => White
@@ -25,6 +77,10 @@ board_t::board_t() { // init an empty board
     params_t params {WK_castle, WQ_castle, BK_castle, BQ_castle, ep_rank, ep_file, ep_played, captured};
 
 	param_stack.push_back(params);
+
+    key = compute_key();
+    key_history.clear();
+    key_history.push_back(key); 
 }
 
 board_t::board_t(std::array <piece_t*, 12> pieces): board_t(){ // init board with inital piece placement
@@ -65,6 +121,18 @@ board_t::board_t(std::vector <move_t> move_hist, std::array <piece_t*, 12> piece
 piece_t* board_t::get_piece(int rank, int file) const
 {
     return board[rank][file];
+}
+
+bool board_t::is_threefold() const{
+    int repeated = 0; 
+    for (auto it = key_history.rbegin(); it != key_history.rend(); it++){ // iterate through board states starting from the most recent
+        if (*it == key){
+            repeated += 1; 
+            if (repeated == 3) 
+                return true; 
+        }
+    }
+    return false;
 }
 
 bool board_t::check_in_between(int fr, int ff, int tr, int tf) const {
@@ -159,6 +227,45 @@ std::vector <move_t> board_t::get_legal_moves(){
 		}
 	}
     return legal;
+}
+
+uint64_t board_t::compute_key() const{
+    init_zobrist();
+    uint64_t key = 0;
+    for (int r = 0; r < 8; r++){
+        for (int f = 0; f < 8; f++){
+            piece_t* piece = board[r][f]; 
+            if (piece == nullptr)
+                continue; 
+            key ^= Z_PSQ[index(piece)][r*8 + f]; 
+        }
+    }
+
+    if (turn) // White starts
+        key ^= Z_TURN;
+    
+    params_t params = param_stack.back();
+    int castle_mask = 0; 
+    // Set one bit for each type of castle
+    if (params.WK_castle) 
+        castle_mask |= 1; 
+    if (params.WQ_castle)
+        castle_mask |= 2; 
+    
+    if (params.BK_castle)
+        castle_mask |= 4;
+    if (params.BQ_castle)
+        castle_mask |= 8;
+    key ^= Z_CASTLE[castle_mask];
+
+    //En passant
+    int ep;
+    if (params.ep_file == -1) // no en passant
+        ep = 8;
+    else
+        ep = params.ep_file; // possible files 0 - 7
+    key ^= Z_EPFILE[ep];
+    return key;
 }
 
 // Assuming verified legal move
@@ -258,6 +365,9 @@ void board_t::make_move(const move_t move){
 
 	// update params
 	param_stack.push_back(params);
+
+    key = compute_key();
+    key_history.push_back(key);
 }
 
 void board_t::undo_move(const move_t move){
@@ -307,4 +417,12 @@ void board_t::undo_move(const move_t move){
 
 	// undo the turn
 	turn = 1 - turn;
+
+    if (!key_history.empty())
+        key_history.pop_back(); 
+    if (!key_history.empty())
+        key = key_history.back(); 
+    else
+        key = compute_key();
 }
+

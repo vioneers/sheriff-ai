@@ -2,6 +2,7 @@
 #define __BOARD__
 #include <vector> 
 #include <array>
+#include <cstdint>
 
 struct move_t;
 struct piece_t;
@@ -30,6 +31,11 @@ struct board_t {
 	std::vector <params_t> param_stack;
 	std::array <piece_t*, 12> pieces;
 
+	uint64_t key;
+	std::vector<uint64_t> key_history;
+
+	uint64_t compute_key() const;
+
 	//bool WK_castle;
 	//bool WQ_castle;
 	//bool BK_castle;
@@ -49,6 +55,7 @@ struct board_t {
 	bool check_in_between(int fr, int ff, int tr, int tf) const;
 	bool square_attacked(int r, int f, bool by_color) const;
 	bool in_check(bool color) const;
+	bool is_threefold() const; 
 
 	std::vector <move_t> get_legal_moves();
 

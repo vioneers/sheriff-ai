@@ -142,6 +142,8 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root){
                 history_table[i][j] = 0;
     }
 
+    if (board_state.is_threefold())
+        return 0;
     int best = -INF;
 
     std::vector <move_t> legal = board_state.get_legal_moves();
@@ -211,6 +213,9 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root){
                 history_table[i][j] = 0;
     }
 
+    if (board_state.is_threefold())
+        return 0;
+        
     int best = INF;
 
     std::vector <move_t> legal = board_state.get_legal_moves();
