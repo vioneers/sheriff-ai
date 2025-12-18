@@ -16,3 +16,8 @@
 - Implemented Perft algorithm to check the number of generated legal moves is accurate
 - Added timing to ensure no time-out. If close to time-out, output random legal move.
 - Analyzed Git stats to identify edge cases, noting only three draws under the threefold repetition rule. Worked on threefold prevention, not yet completed.
+
+## Week 4
+- Threefold repetition handling with Zobrist hashing
+    - Implemented `init_zobrist()`,`compute_key()`, `is_threefold()` and updated the key history in `make_move()` and `undo_move()` 
+    - `alphaBetaMax` and `alphaBetaMin` evaluate threefold repetition with a score of 0, avoiding it when a better move exists and performing it only if the best outcome is the draw
