@@ -124,8 +124,8 @@ piece_t* board_t::get_piece(int rank, int file) const
 }
 
 bool board_t::is_threefold() const{
-    int repeated = 0; 
-    for (auto it = key_history.rbegin(); it != key_history.rend(); it++){ // iterate through board states starting from the most recent
+    int repeated = 0, states = 0;
+    for (auto it = key_history.rbegin(); it != key_history.rend() && states < 6; it++, states++){ // iterate through board states starting from the most recent
         if (*it == key){
             repeated += 1; 
             if (repeated == 3) 
