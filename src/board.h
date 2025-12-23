@@ -3,6 +3,7 @@
 #include <vector> 
 #include <array>
 #include <cstdint>
+#include <unordered_map>
 
 struct move_t;
 struct piece_t;
@@ -33,6 +34,9 @@ struct board_t {
 
 	uint64_t key;
 	std::vector<uint64_t> key_history;
+	std::unordered_map<uint64_t, int> repetition_count;
+	std::vector<int> irreversible_stack;
+	int last_irreversible_index;
 
 	uint64_t compute_key() const;
 

@@ -1,5 +1,7 @@
 #include <cmath>
 #include <random>
+#include <unordered_map>
+#include <cctype>
 #include "board.h"
 #include "piece.h"
 #include "engine.h"
@@ -80,7 +82,11 @@ board_t::board_t() { // init an empty board
 
     key = compute_key();
     key_history.clear();
-    key_history.push_back(key); 
+    key_history.push_back(key);
+    repetition_count.clear();
+    repetition_count[key] = 1;
+    irreversible_stack.clear();
+    last_irreversible_index = 0;
 }
 
 board_t::board_t(std::array <piece_t*, 12> pieces): board_t(){ // init board with inital piece placement
@@ -111,6 +117,14 @@ board_t::board_t(std::array <piece_t*, 12> pieces): board_t(){ // init board wit
     board[7][5] = pieces[BISHOP_W];
     board[7][6] = pieces[KNIGHT_W];
     board[7][7] = pieces[ROOK_W];
+
+    key = compute_key();
+    key_history.clear();
+    key_history.push_back(key);
+    repetition_count.clear();
+    repetition_count[key] = 1;
+    irreversible_stack.clear();
+    last_irreversible_index = 0;
 }
 
 board_t::board_t(std::vector <move_t> move_hist, std::array <piece_t*, 12> pieces) : board_t(pieces) {
@@ -124,15 +138,8 @@ piece_t* board_t::get_piece(int rank, int file) const
 }
 
 bool board_t::is_threefold() const{
-    int repeated = 0, states = 0;
-    for (auto it = key_history.rbegin(); it != key_history.rend() && states < 6; it++, states++){ // iterate through board states starting from the most recent
-        if (*it == key){
-            repeated += 1; 
-            if (repeated == 3) 
-                return true; 
-        }
-    }
-    return false;
+    auto it = repetition_count.find(key);
+    return it != repetition_count.end() && it->second >= 3;
 }
 
 bool board_t::check_in_between(int fr, int ff, int tr, int tf) const {
@@ -275,8 +282,11 @@ void board_t::make_move(const move_t move){
     int fr = move.from_rank;
     int ff = move.from_file;
 
+    uint64_t old_key = key;
+
+    params_t prev_params = param_stack.back();
 	// initialise new params with previous values
-	params_t params = param_stack.back();
+	params_t params = prev_params;
 
 	// reset necessary params
 	params.ep_rank = -1;
@@ -366,8 +376,88 @@ void board_t::make_move(const move_t move){
 	// update params
 	param_stack.push_back(params);
 
-    key = compute_key();
+    auto castle_mask_from = [](const params_t& p){
+        int mask = 0;
+        if (p.WK_castle) mask |= 1;
+        if (p.WQ_castle) mask |= 2;
+        if (p.BK_castle) mask |= 4;
+        if (p.BQ_castle) mask |= 8;
+        return mask;
+    };
+
+    uint64_t new_key = old_key;
+    // toggle turn
+    new_key ^= Z_TURN;
+
+    // castle rights
+    int old_castle_mask = castle_mask_from(prev_params);
+    int new_castle_mask = castle_mask_from(params);
+    if (old_castle_mask != new_castle_mask){
+        new_key ^= Z_CASTLE[old_castle_mask];
+        new_key ^= Z_CASTLE[new_castle_mask];
+    }
+
+    // en passant
+    int old_ep = prev_params.ep_file == -1 ? 8 : prev_params.ep_file;
+    int new_ep = params.ep_file == -1 ? 8 : params.ep_file;
+    if (old_ep != new_ep){
+        new_key ^= Z_EPFILE[old_ep];
+        new_key ^= Z_EPFILE[new_ep];
+    }
+
+    int from_sq = fr * 8 + ff;
+    int to_sq = tr * 8 + tf;
+
+    // remove moving piece from origin
+    new_key ^= Z_PSQ[index(piece)][from_sq];
+
+    // remove captured piece
+    if (params.captured){
+        int cap_r = params.ep_played ? fr : tr;
+        int cap_f = tf;
+        new_key ^= Z_PSQ[index(params.captured)][cap_r * 8 + cap_f];
+    }
+
+    // add moving piece at destination (handle promotion)
+    if (move.promotion){
+        char promo_sym = std::toupper(move.promotion);
+        if (promo_sym == 'K') promo_sym = 'N'; // 'k' is used for knight promotion
+        int promo_idx = (piece->color ? 6 : 0) + base_index(promo_sym);
+        new_key ^= Z_PSQ[promo_idx][to_sq];
+    } else {
+        new_key ^= Z_PSQ[index(piece)][to_sq];
+    }
+
+    // handle rook movement during castling
+    if (piece->symbol == 'K' && std::abs(tf - ff) == 2){
+        int rook_from_f = (tf > ff) ? 7 : 0;
+        int rook_to_f   = (tf > ff) ? 5 : 3;
+        piece_t* rook_piece = piece->color ? pieces[ROOK_B] : pieces[ROOK_W];
+        new_key ^= Z_PSQ[index(rook_piece)][fr * 8 + rook_from_f];
+        new_key ^= Z_PSQ[index(rook_piece)][fr * 8 + rook_to_f];
+    }
+
+    key = new_key;
     key_history.push_back(key);
+
+    // Track repetition counts efficiently
+    irreversible_stack.push_back(last_irreversible_index);
+    bool castle_changed = (prev_params.WK_castle != params.WK_castle) ||
+                          (prev_params.WQ_castle != params.WQ_castle) ||
+                          (prev_params.BK_castle != params.BK_castle) ||
+                          (prev_params.BQ_castle != params.BQ_castle);
+    bool irreversible = params.captured != nullptr ||
+                        piece->symbol == 'P' ||
+                        move.promotion ||
+                        castle_changed;
+
+    if (irreversible){
+        last_irreversible_index = static_cast<int>(key_history.size()) - 1;
+        repetition_count.clear();
+        repetition_count[key] = 1;
+    } else {
+        repetition_count[key] += 1;
+    }
 }
 
 void board_t::undo_move(const move_t move){
@@ -418,11 +508,32 @@ void board_t::undo_move(const move_t move){
 	// undo the turn
 	turn = 1 - turn;
 
+    // Update repetition tracking
+    int prev_last_irreversible = irreversible_stack.back();
+    irreversible_stack.pop_back();
+    bool was_irreversible = prev_last_irreversible != last_irreversible_index;
+    uint64_t current_key = key_history.empty() ? 0 : key_history.back();
+
+    if (!was_irreversible){
+        auto it = repetition_count.find(current_key);
+        if (it != repetition_count.end()){
+            if (--(it->second) == 0)
+                repetition_count.erase(it);
+        }
+    }
+
     if (!key_history.empty())
-        key_history.pop_back(); 
+        key_history.pop_back();
+
     if (!key_history.empty())
         key = key_history.back(); 
     else
         key = compute_key();
-}
 
+    last_irreversible_index = prev_last_irreversible;
+    if (was_irreversible){
+        repetition_count.clear();
+        for (int i = last_irreversible_index; i < static_cast<int>(key_history.size()); ++i)
+            repetition_count[key_history[i]] += 1;
+    }
+}
