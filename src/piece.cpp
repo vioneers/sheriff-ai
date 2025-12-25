@@ -154,19 +154,19 @@ void board_t::generate_king_moves(std::vector<move_t> &list)
 }
 
 template<Color Us> 
-void generate_queen_moves(MoveList& list)
+void board_t::generate_queen_moves(std::vector<move_t> &list)
 {
 	// TODO:
 }
 
 template<Color Us> 
-void generate_rook_moves(MoveList& list)
+void board_t::generate_rook_moves(std::vector<move_t> &list)
 {
 	// TODO:
 }
 
 template<Color Us> 
-void generate_bishop_moves(MoveList& list)
+void board_t::generate_bishop_moves(std::vector<move_t> &list)
 {
 	// TODO:
 }

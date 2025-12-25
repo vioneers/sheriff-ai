@@ -56,15 +56,16 @@ board_t::board_t(std::vector <move_t> move_hist): board_t()
 
 // Making and unmaking moves
 
-void make_move(move_t m){
+bool board_t::make_move(move_t m){
 	// TODO:
 	// make move
 	// update mailbox
 	// push to params stack
 	// update flags in move object so that we can then use them for unmake move?
+	return true;
 }
 
-void undo_move(move_t m)
+void board_t::undo_move(move_t m)
 {
 	// TODO:
 	// pop from params stack
@@ -144,4 +145,44 @@ bool board_t::in_check(Color color) const
 
 	int king_sq = __builtin_ctzll(king_bb);
 	return square_attacked(king_sq, ~color);
+}
+
+void board_t::add_move(std::vector<move_t> &list, move_t move)
+{
+	Color us = history.empty() ? WHITE : history.back().turn;
+
+	if (!make_move(move))
+		return;
+
+	if (!in_check(us))
+		list.push_back(move);
+
+	undo_move(move);
+}
+
+void board_t::get_legal_moves(std::vector<move_t> &list, Color color)
+{
+	list.clear();
+
+	std::vector<move_t> pseudo;
+	pseudo.reserve(128);
+
+	if (color == WHITE) {
+		generate_pawn_moves<WHITE>(pseudo);
+		generate_knight_moves<WHITE>(pseudo);
+		generate_bishop_moves<WHITE>(pseudo);
+		generate_rook_moves<WHITE>(pseudo);
+		generate_queen_moves<WHITE>(pseudo);
+		generate_king_moves<WHITE>(pseudo);
+	} else {
+		generate_pawn_moves<BLACK>(pseudo);
+		generate_knight_moves<BLACK>(pseudo);
+		generate_bishop_moves<BLACK>(pseudo);
+		generate_rook_moves<BLACK>(pseudo);
+		generate_queen_moves<BLACK>(pseudo);
+		generate_king_moves<BLACK>(pseudo);
+	}
+
+	for (const auto& move : pseudo)
+		add_move(list, move);
 }

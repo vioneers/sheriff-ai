@@ -21,6 +21,7 @@ struct board_t {
     // History stack for unmake_move
     std::vector<state_t> history;
 
+	board_t(); // default constructor - initial position
 	board_t(std::string fen);
 	board_t(std::vector <move_t> move_hist);
 
