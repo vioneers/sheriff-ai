@@ -155,13 +155,13 @@ int evaluate_pawn_structure(board_t* board) {
         }
     }
     for(int f=0;f<8;f++){
-        if(pawnsW[f] >= 2) score += DOUBLED_PAWN_PENALTY;
-        if(pawnsB[f] >= 2) score -= DOUBLED_PAWN_PENALTY;
+        if(pawnsW[f] >= 2) score -= DOUBLED_PAWN_PENALTY;
+        if(pawnsB[f] >= 2) score += DOUBLED_PAWN_PENALTY;
 
         if(pawnsW[f] == 1 && f>0 && f<7 && pawnsW[f-1]==0 && pawnsW[f+1]==0)
-            score += ISOLATED_PAWN_PENALTY;
-        if(pawnsB[f] == 1 && f>0 && f<7 && pawnsB[f-1]==0 && pawnsB[f+1]==0)
             score -= ISOLATED_PAWN_PENALTY;
+        if(pawnsB[f] == 1 && f>0 && f<7 && pawnsB[f-1]==0 && pawnsB[f+1]==0)
+            score += ISOLATED_PAWN_PENALTY;
     }
     return score;
 }

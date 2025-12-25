@@ -21,3 +21,9 @@
 - Threefold repetition handling with Zobrist hashing
     - Implemented `init_zobrist()`,`compute_key()`, `is_threefold()` and updated the key history in `make_move()` and `undo_move()` 
     - `alphaBetaMax` and `alphaBetaMin` evaluate threefold repetition with a score of 0, avoiding it when a better move exists and performing it only if the best outcome is the draw
+
+## Winter Holiday
+- On main branch:   
+    - Changed penalty sign issue in `evaluate_pawn_structure()`
+- On bitboards branch: 
+    - Switched to bitboards representation for the file `evaluationbar.cpp` (updated `evaluate_material_and_position()`, `evaluate_mobility`,`evaluate_pawn_structure()`) 
