@@ -76,6 +76,7 @@ uint64_t find_magic(int sq, bool bishop)
 
 int main(int argc, char* argv[])
 {
+	// pass the absolute output path as argument
 	std::string out_path = "../src/magic.h";
 	if(argc > 1)
 		out_path = argv[1];

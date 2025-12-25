@@ -22,7 +22,7 @@ set(ENGINE_SOURCES
 # To generate ${MAGIC_HEADER} run make_magic
 add_custom_command(
 	OUTPUT ${MAGIC_HEADER}
-    COMMAND make_magic "${GENERATED_HEADER}"
+    COMMAND make_magic "${MAGIC_HEADER}"
     DEPENDS make_magic
     COMMENT "Generating magic.h in src/..."
 )
