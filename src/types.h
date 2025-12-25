@@ -6,7 +6,8 @@
 using Bitboard = uint64_t;
 
 // Define the Piece Types for reference
-enum PieceType { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, NONE };
+// changed NONE to be first (=0) because we use negative = black, so we cannot have the pawn to be first (+-0)
+enum PieceType {NONE = 0, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING};
 
 enum Color { WHITE, BLACK, BOTH };
 
