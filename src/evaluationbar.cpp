@@ -116,11 +116,12 @@ static const int MOBILITY = 5;
 
 int evaluate_mobility(board_t* board) {
     std::vector<move_t> moves;
-    board->get_legal_moves(moves, board->turn);
+    Color turn = board->history.back().turn;
+    board->get_legal_moves(moves, turn);
 
     int mobility = static_cast<int>(moves.size());
 
-    return (board->turn == WHITE ? +mobility : -mobility) * MOBILITY;
+    return (turn == WHITE ? +mobility : -mobility) * MOBILITY;
 }
 
 // ---------------------------------------------------------
