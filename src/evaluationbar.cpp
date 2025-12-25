@@ -2,7 +2,6 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
-#include "piece.h"
 #include "board.h"
 #include "move.h"
 

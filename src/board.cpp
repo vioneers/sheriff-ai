@@ -1,3 +1,5 @@
+#include <bit>
+
 #include "board.h"
 #include "bitboard.h"
 
@@ -26,21 +28,17 @@ board_t::board_t()
         uint64_t bb = pieces[p];
 
         while (bb) {
-            // Get the index of the Least Significant Bit (LSB)
-            int sq = __builtin_ctzll(bb); 
+            // Get the index of the Least Significant Bit (LSB) and pop it
+            int sq = pop_lsb(bb); 
 
             // Determine color by checking the White occupancy board
             int color = (occupancy[WHITE] & (1ULL << sq)) ? WHITE : BLACK;
 
             mailbox[sq] = (color == WHITE) ? p : -p; 
-
-            // Remove LSB
-            bb &= (bb - 1); 
         }
     }
 
-	state_t init{0, (1<<4)-1, -1, NONE, WHITE}; // z_key, castling_rights, ep_square, captured, turn
-	history.push_back{init};
+	history.emplace_back(0, (1 << 4) - 1, -1, NONE, WHITE); // z_key, castling_rights, ep_square, captured, turn
 }
 
 board_t::board_t(std::string fen)
@@ -364,7 +362,7 @@ bool board_t::in_check(Color color) const
 	if (!king_bb)
 		return false; // king missing; treat as not in check
 
-	int king_sq = __builtin_ctzll(king_bb);
+	int king_sq = std::countr_zero(king_bb);
 	return square_attacked(king_sq, ~color);
 }
 

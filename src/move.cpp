@@ -17,13 +17,13 @@ move_t::move_t(const std::string& code)
 		switch (code[4])
 		{
             case 'q':
-                return PROMO_Q;
+				flags = PROMO_Q; break;
             case 'r':
-                return PROMO_R;
+				flags = PROMO_R; break;
             case 'b':
-                return PROMO_B;
+				flags = PROMO_B; break;
             case 'n':
-                return PROMO_N;
+				flags = PROMO_N; break;
         }
 }
 
@@ -35,7 +35,7 @@ std::string move_t::to_code()
 	std::string from = std::string("") + (char)('a' + from_sq%8) + (char)('1' + from_sq/8);
 	std::string to = std::string("") + (char)('a' + to_sq%8) + (char)('1' + to_sq/8);
 
-	std::string code = from + to
+	std::string code = from + to;
 	
 	switch(flag())
 	{
@@ -44,7 +44,7 @@ std::string move_t::to_code()
 		case PROMO_R:
 			return code += "r";
 		case PROMO_B:
-			return code == "b";
+			return code += "b";
 		case PROMO_N:
 			return code += "n";
 	}

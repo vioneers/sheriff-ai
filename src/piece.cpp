@@ -37,16 +37,14 @@ void board_t::generate_pawn_moves(std::vector<move_t> &list)
 	Bitboard single_quiet  = single & ~PromoRank;
 
 	while (single_quiet) {
-		int to = __builtin_ctzll(single_quiet);
+		int to = pop_lsb(single_quiet);
 		int from = to - Up;
 		list.emplace_back(from, to, QUIET);
-		single_quiet &= single_quiet - 1;
 	}
 	while (single_promos) {
-		int to = __builtin_ctzll(single_promos);
+		int to = pop_lsb(single_promos);
 		int from = to - Up;
 		add_promos(from, to, false);
-		single_promos &= single_promos - 1;
 	}
 
 	// Double pushes from starting rank
@@ -54,10 +52,9 @@ void board_t::generate_pawn_moves(std::vector<move_t> &list)
 	Bitboard single_from_start = shift<Up>(start_pawns) & empty;
 	Bitboard double_push = shift<Up>(single_from_start) & empty;
 	while (double_push) {
-		int to = __builtin_ctzll(double_push);
+		int to = pop_lsb(double_push);
 		int from = to - 2 * Up;
 		list.emplace_back(from, to, DOUBLE_PUSH);
-		double_push &= double_push - 1;
 	}
 
 	// Captures
@@ -71,28 +68,24 @@ void board_t::generate_pawn_moves(std::vector<move_t> &list)
 	left_caps  &= ~PromoRank;
 
 	while (right_caps) {
-		int to = __builtin_ctzll(right_caps);
+		int to = pop_lsb(right_caps);
 		int from = to - Right;
 		list.emplace_back(from, to, CAPTURE);
-		right_caps &= right_caps - 1;
 	}
 	while (left_caps) {
-		int to = __builtin_ctzll(left_caps);
+		int to = pop_lsb(left_caps);
 		int from = to - Left;
 		list.emplace_back(from, to, CAPTURE);
-		left_caps &= left_caps - 1;
 	}
 	while (right_promos) {
-		int to = __builtin_ctzll(right_promos);
+		int to = pop_lsb(right_promos);
 		int from = to - Right;
 		add_promos(from, to, true);
-		right_promos &= right_promos - 1;
 	}
 	while (left_promos) {
-		int to = __builtin_ctzll(left_promos);
+		int to = pop_lsb(left_promos);
 		int from = to - Left;
 		add_promos(from, to, true);
-		left_promos &= left_promos - 1;
 	}
 
 	// En passant
@@ -118,16 +111,14 @@ void board_t::generate_knight_moves(std::vector<move_t> &list)
 	Bitboard their = occupancy[Them];
 
 	while (knights) {
-		int from = __builtin_ctzll(knights);
+		int from = pop_lsb(knights);
 		Bitboard moves = KnightAttacks[from] & ~own;
 		while (moves) {
-			int to = __builtin_ctzll(moves);
-			moves &= moves - 1;
+			int to = pop_lsb(moves);
 
 			bool is_capture = (their >> to) & 1ULL;
 			list.emplace_back(from, to, is_capture ? CAPTURE : QUIET);
 		}
-		knights &= knights - 1;
 	}
 }
 
@@ -140,16 +131,14 @@ void board_t::generate_king_moves(std::vector<move_t> &list)
 	Bitboard their = occupancy[Them];
 
 	while (kings) {
-		int from = __builtin_ctzll(kings);
+		int from = pop_lsb(kings);
 		Bitboard moves = KingAttacks[from] & ~own;
 		while (moves) {
-			int to = __builtin_ctzll(moves);
-			moves &= moves - 1;
+			int to = pop_lsb(moves);
 
 			bool is_capture = (their >> to) & 1ULL;
 			list.emplace_back(from, to, is_capture ? CAPTURE : QUIET);
 		}
-		kings &= kings - 1;
 	}
 }
 
@@ -157,7 +146,7 @@ template<Color Us>
 void board_t::generate_queen_moves(std::vector<move_t> &list)
 {
 	constexpr Color Them = ~Us;
-	Bitboard queens = pieces[QEEN] & occupancy[Us];
+	Bitboard queens = pieces[QUEEN] & occupancy[Us];
 	Bitboard own = occupancy[Us];
 	Bitboard their = occupancy[Them];
 

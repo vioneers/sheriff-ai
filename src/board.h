@@ -16,7 +16,7 @@ struct state_t {
 struct board_t {
     Bitboard pieces[6];   // [PieceType]
     Bitboard occupancy[3];   // [White, Black, Both]
-    PieceType mailbox[64]; // Get pieces by board position (positive values for WHITE, negative for BLACK)
+    int mailbox[64]; // Get pieces by board position (positive values for WHITE, negative for BLACK)
 
     // History stack for unmake_move
     std::vector<state_t> history;
