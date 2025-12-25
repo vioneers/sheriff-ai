@@ -5,3 +5,6 @@
 # Ignore CMake build directory
 build/
 out/ 
+
+# Ignore magic.h it can always be geenrated my cmake during copilation
+src/magic.h
