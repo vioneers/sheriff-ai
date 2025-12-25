@@ -156,17 +156,80 @@ void board_t::generate_king_moves(std::vector<move_t> &list)
 template<Color Us> 
 void board_t::generate_queen_moves(std::vector<move_t> &list)
 {
-	// TODO:
+	constexpr Color Them = ~Us;
+	Bitboard queens = pieces[QEEN] & occupancy[Us];
+	Bitboard own = occupancy[Us];
+	Bitboard their = occupancy[Them];
+
+	while (queens) 
+	{
+		int from = pop_lsb(queens);
+
+		Bitboard rblockers = occupancy[BOTH] & RookMask[from];
+		Bitboard rhash = apply_magic(rblockers, RMagic[from], RShift[from]);
+
+		Bitboard bblockers = occupancy[BOTH] & BishopMask[from];
+		Bitboard bhash = apply_magic(bblockers, BMagic[from], BShift[from]);
+		
+		Bitboard moves = RookAttacks[from][rhash] | BishopAttacks[from][bhash];
+
+		while (moves)
+		{
+			int to = pop_lsb(moves);
+			bool is_capture = (their >> to) & 1ULL;
+			list.emplace_back(from, to, is_capture ? CAPTURE : QUIET);
+		}
+	}
 }
 
 template<Color Us> 
 void board_t::generate_rook_moves(std::vector<move_t> &list)
 {
-	// TODO:
+	constexpr Color Them = ~Us;
+	Bitboard rooks = pieces[ROOK] & occupancy[Us];
+	Bitboard own = occupancy[Us];
+	Bitboard their = occupancy[Them];
+
+	while (rooks)
+	{
+		int from = pop_lsb(rooks);
+
+		Bitboard blockers = occupancy[BOTH] & RookMask[from];
+		Bitboard hash = apply_magic(blockers, RMagic[from], RShift[from]);
+
+		Bitboard moves = RookAttacks[from][hash];
+
+		while (moves)
+		{
+			int to = pop_lsb(moves);
+			bool is_capture = (their >> to) & 1ULL;
+			list.emplace_back(from, to, is_capture ? CAPTURE : QUIET);
+		}
+	}
 }
 
 template<Color Us> 
 void board_t::generate_bishop_moves(std::vector<move_t> &list)
 {
-	// TODO:
+	constexpr Color Them = ~Us;
+	Bitboard bishops = pieces[BISHOP] & occupancy[Us];
+	Bitboard own = occupancy[Us];
+	Bitboard their = occupancy[Them];
+
+	while (bishops)
+	{
+		int from = pop_lsb(bishops);
+
+		Bitboard blockers = occupancy[BOTH] & BishopMask[from];
+		Bitboard hash = apply_magic(blockers, BMagic[from], BShift[from]);
+
+		Bitboard moves = BishopAttacks[from][hash];
+
+		while (moves)
+		{
+			int to = pop_lsb(moves);
+			bool is_capture = (their >> to) & 1ULL;
+			list.emplace_back(from, to, is_capture ? CAPTURE : QUIET);
+		}
+	}
 }
