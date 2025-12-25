@@ -25,3 +25,6 @@ Additions :
 - Implemented `in_check()` to check if a given colour is under check.
 - Optimised three-fold repition tracking and checking using dictionaries and irreversible move tracking.
 
+## Week 5
+- Implemented `get_legal_moves()` and `add_move` for the bitboard implementation.
+
