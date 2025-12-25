@@ -27,4 +27,5 @@ Additions :
 
 ## Week 5
 - Implemented `get_legal_moves()` and `add_move` for the bitboard implementation.
+- Implemented `make_move()` and `undo_move()`.
 
