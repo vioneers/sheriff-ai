@@ -7,7 +7,6 @@
 #include "utils.h"
 #include "move.h"
 #include "engine.h"
-#include "piece.h"
 #include "board.h"
 
 using namespace std; 
