@@ -57,11 +57,145 @@ board_t::board_t(std::vector <move_t> move_hist): board_t()
 // Making and unmaking moves
 
 bool board_t::make_move(move_t m){
-	// TODO:
-	// make move
-	// update mailbox
-	// push to params stack
-	// update flags in move object so that we can then use them for unmake move?
+	if (history.empty())
+		return false;
+
+	const state_t& prev = history.back();
+	Color us = prev.turn;
+	Color them = ~us;
+
+	int from = m.from();
+	int to = m.to();
+	Bitboard from_bb = 1ULL << from;
+	Bitboard to_bb = 1ULL << to;
+
+	int signed_piece = mailbox[from];
+	if (signed_piece == NONE)
+		return false;
+
+	PieceType moving = (signed_piece < 0) ? (PieceType)(-signed_piece) : (PieceType)signed_piece;
+	int flag = m.flag();
+
+	bool is_ep = (flag == EP_CAPTURE);
+	bool is_castle = (flag == K_CASTLE || flag == Q_CASTLE);
+	bool is_promo = (flag & 0b1000) != 0;
+	bool is_double = (flag == DOUBLE_PUSH);
+	bool is_capture = is_ep || (flag & CAPTURE) || (occupancy[them] & to_bb);
+
+	state_t next = prev;
+	next.turn = them;
+	next.ep_square = -1;
+	next.captured = NONE;
+
+	if (is_capture && !is_ep) {
+		int cap_signed = mailbox[to];
+		PieceType captured = (cap_signed < 0) ? (PieceType)(-cap_signed) : (PieceType)cap_signed;
+		if (captured == NONE) {
+			for (int p = PAWN; p <= KING; ++p) {
+				if (pieces[p] & to_bb) {
+					captured = (PieceType)p;
+					break;
+				}
+			}
+		}
+		if (captured != NONE) {
+			pieces[captured] &= ~to_bb;
+			occupancy[them] &= ~to_bb;
+			next.captured = captured;
+		}
+	}
+
+	if (is_ep) {
+		int cap_sq = to + (us == WHITE ? -8 : 8);
+		Bitboard cap_bb = 1ULL << cap_sq;
+		pieces[PAWN] &= ~cap_bb;
+		occupancy[them] &= ~cap_bb;
+		mailbox[cap_sq] = NONE;
+		next.captured = PAWN;
+	}
+
+	pieces[moving] &= ~from_bb;
+	occupancy[us] &= ~from_bb;
+	mailbox[from] = NONE;
+
+	if (is_promo) {
+		PieceType promo = QUEEN;
+		switch (flag) {
+			case PROMO_N:
+			case PROMO_N_CAP:
+				promo = KNIGHT;
+				break;
+			case PROMO_B:
+			case PROMO_B_CAP:
+				promo = BISHOP;
+				break;
+			case PROMO_R:
+			case PROMO_R_CAP:
+				promo = ROOK;
+				break;
+			default:
+				promo = QUEEN;
+				break;
+		}
+
+		pieces[promo] |= to_bb;
+		occupancy[us] |= to_bb;
+		mailbox[to] = (us == WHITE) ? promo : (PieceType)(-promo);
+	} else {
+		pieces[moving] |= to_bb;
+		occupancy[us] |= to_bb;
+		mailbox[to] = (us == WHITE) ? moving : (PieceType)(-moving);
+	}
+
+	if (is_castle && moving == KING) {
+		int rook_from = -1;
+		int rook_to = -1;
+		if (us == WHITE) {
+			if (flag == K_CASTLE) { rook_from = H1; rook_to = F1; }
+			else { rook_from = A1; rook_to = D1; }
+		} else {
+			if (flag == K_CASTLE) { rook_from = H8; rook_to = F8; }
+			else { rook_from = A8; rook_to = D8; }
+		}
+		Bitboard rook_from_bb = 1ULL << rook_from;
+		Bitboard rook_to_bb = 1ULL << rook_to;
+		pieces[ROOK] &= ~rook_from_bb;
+		pieces[ROOK] |= rook_to_bb;
+		occupancy[us] &= ~rook_from_bb;
+		occupancy[us] |= rook_to_bb;
+		mailbox[rook_from] = NONE;
+		mailbox[rook_to] = (us == WHITE) ? ROOK : (PieceType)(-ROOK);
+	}
+
+	int rights = prev.castling_rights;
+	if (moving == KING) {
+		if (us == WHITE)
+			rights &= ~((1 << 0) | (1 << 1));
+		else
+			rights &= ~((1 << 2) | (1 << 3));
+	}
+	if (moving == ROOK) {
+		if (us == WHITE) {
+			if (from == H1) rights &= ~(1 << 0);
+			else if (from == A1) rights &= ~(1 << 1);
+		} else {
+			if (from == H8) rights &= ~(1 << 2);
+			else if (from == A8) rights &= ~(1 << 3);
+		}
+	}
+	if (is_capture && !is_ep) {
+		if (to == H1) rights &= ~(1 << 0);
+		else if (to == A1) rights &= ~(1 << 1);
+		else if (to == H8) rights &= ~(1 << 2);
+		else if (to == A8) rights &= ~(1 << 3);
+	}
+
+	next.castling_rights = rights;
+	if (is_double)
+		next.ep_square = from + (us == WHITE ? 8 : -8);
+
+	occupancy[BOTH] = occupancy[WHITE] | occupancy[BLACK];
+	history.push_back(next);
 	return true;
 }
 
