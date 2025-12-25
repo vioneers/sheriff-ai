@@ -29,127 +29,24 @@ uint64_t random_uint64() {
     return dist(gen);
 }
 
-// prefer generating masks wuth few 1 bits for efficiency
+// prefer generating masks with few 1 bits for efficiency
 uint64_t random_uint64_fewbits() {
   return random_uint64() & random_uint64() & random_uint64();
-}
-
-int pop_lsb(uint64_t &b)
-{
-	auto index = std::countr_zero(b);
-    b &= b - 1;
-    return index;
-}
-
-// generate Bitboard of blocker pieces from index with `bits` nr of bits and movement mask m.
-// used to find all blocker configurations by iterating over index
-Bitboard index_to_blockers(int index, int bits, Bitboard m) 
-{
-	Bitboard result = 0ULL;
-	for(int i = 0; i < bits; i++) {
-		int j = pop_lsb(m);
-		if(index & (1 << i)) result |= (1ULL << j);
-	}
-	return result;
-}
-
-// get positions we need to check for blockers when moving rook / bishop
-Bitboard rmask(int sq)
-{
-	Bitboard mask = 0ULL;
-	int rk = sq / 8;
-	int fl = sq % 8;
-	int r, f;
-
-	for(r = rk+1; r <= 6; r++) mask |= (1ULL << (fl + r*8));
-	for(r = rk-1; r >= 1; r--) mask |= (1ULL << (fl + r*8));
-	for(f = fl+1; f <= 6; f++) mask |= (1ULL << (f + rk*8));
-	for(f = fl-1; f >= 1; f--) mask |= (1ULL << (f + rk*8));
-	
-	return mask;
-}
-
-Bitboard bmask(int sq)
-{
-	Bitboard mask = 0ULL;
-	int rk = sq / 8;
-	int fl = sq % 8;
-	int r, f;
-
-	for(r=rk+1, f=fl+1; r<=6 && f<=6; r++, f++) mask |= (1ULL << (f + r*8));
-	for(r=rk+1, f=fl-1; r<=6 && f>=1; r++, f--) mask |= (1ULL << (f + r*8));
-	for(r=rk-1, f=fl+1; r>=1 && f<=6; r--, f++) mask |= (1ULL << (f + r*8));
-	for(r=rk-1, f=fl-1; r>=1 && f>=1; r--, f--) mask |= (1ULL << (f + r*8));
-
-	return mask;
-}
-
-// given a mask of blocker pieces, generate where rook / bishop can move
-// used to test if magic number is good
-Bitboard ratt(int sq, Bitboard block) {
-  Bitboard result = 0ULL;
-  int rk = sq/8, fl = sq%8, r, f;
-  for(r = rk+1; r <= 7; r++) {
-    result |= (1ULL << (fl + r*8));
-    if(block & (1ULL << (fl + r*8))) break;
-  }
-  for(r = rk-1; r >= 0; r--) {
-    result |= (1ULL << (fl + r*8));
-    if(block & (1ULL << (fl + r*8))) break;
-  }
-  for(f = fl+1; f <= 7; f++) {
-    result |= (1ULL << (f + rk*8));
-    if(block & (1ULL << (f + rk*8))) break;
-  }
-  for(f = fl-1; f >= 0; f--) {
-    result |= (1ULL << (f + rk*8));
-    if(block & (1ULL << (f + rk*8))) break;
-  }
-  return result;
-}
-
-Bitboard batt(int sq, Bitboard block) {
-  Bitboard result = 0ULL;
-  int rk = sq/8, fl = sq%8, r, f;
-  for(r = rk+1, f = fl+1; r <= 7 && f <= 7; r++, f++) {
-    result |= (1ULL << (f + r*8));
-    if(block & (1ULL << (f + r * 8))) break;
-  }
-  for(r = rk+1, f = fl-1; r <= 7 && f >= 0; r++, f--) {
-    result |= (1ULL << (f + r*8));
-    if(block & (1ULL << (f + r * 8))) break;
-  }
-  for(r = rk-1, f = fl+1; r >= 0 && f <= 7; r--, f++) {
-    result |= (1ULL << (f + r*8));
-    if(block & (1ULL << (f + r * 8))) break;
-  }
-  for(r = rk-1, f = fl-1; r >= 0 && f >= 0; r--, f--) {
-    result |= (1ULL << (f + r*8));
-    if(block & (1ULL << (f + r * 8))) break;
-  }
-  return result;
-}
-
-// apply hashing of bitboard `b` with magic number.
-// `bits` represents the nuber of usefull positions that need to be transposed from b to the hash.
-int apply_magic(Bitboard b, uint64_t magic, int bits)
-{
-	return (int)((b*magic) >> (64 - bits));
 }
 
 // find magic number for given square by trial and error
 uint64_t find_magic(int sq, bool bishop)
 {
-	Bitboard mask = bishop? bmask(sq) : rmask(sq);
+	Bitboard mask = bishop? BishopMask[sq] : RookMask[sq];
 	int n = std::popcount(mask); // get number of 1 bits in mask
 	
 	// generate all blocker configurations and the positions we can move to for each
-	Bitboard block[4096], move[4096], used[4096]; // we have at most 12 positions we are interested in, so 2^12 masks
+	Bitboard block[4096], attack[4096], used[4096]; // we have at most 12 positions we are interested in, so 2^12 masks
 
 	for (int i = 0; i < (1<<n); i++)
 	{
 		block[i] = index_to_blockers(i, n, mask);
-		move[i] = bishop? batt(sq, block[i]) : ratt(sq, block[i]);
+		attack[i] = bishop? batt(sq, block[i]) : ratt(sq, block[i]);
 	}
 
 	for(int k = 0; k < 100000000; k++) 
@@ -164,8 +61,8 @@ uint64_t find_magic(int sq, bool bishop)
 		{
 			int j = apply_magic(block[i], magic, n);
 			
-			if(used[j] == 0ULL) used[j] = move[i];
-			else if(used[j] != move[i]) fail = 1;
+			if(used[j] == 0ULL) used[j] = attack[i];
+			else if(used[j] != attack[i]) fail = 1;
 		}
 
 		if(!fail) 
@@ -186,6 +83,28 @@ int main(int argc, char* argv[])
 	std::ofstream fout(out_path);
 
 	fout << "#pragma once\n\n";
+	
+	fout << "// Rook and Bishop shift tables\n\n";
+
+	fout << "const int RShift[64] = {";
+	for(int sq = 0; sq < 64; sq++)
+	{
+		if(sq % 8 == 0)
+			fout << "\n";
+		fout << std::popcount(RookMask[sq]) << ", ";
+	}
+	fout << "}; \n\n";
+	
+	fout << "const int BShift[64] = {";
+	for(int sq = 0; sq < 64; sq++)
+	{
+		if(sq % 8 == 0)
+			fout << "\n";
+		fout << std::popcount(BishopMask[sq]) << ", ";
+	}
+	fout << "}; \n\n";
+
+	fout << "// magic numbers tables\n\n";
 
 	fout << "const uint64_t RMagic[64] = {\n";
 	for(int sq = 0; sq < 64; sq++)
