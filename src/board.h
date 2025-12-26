@@ -44,7 +44,9 @@ struct board_t {
 	template<Color Us> void generate_rook_moves(std::vector<move_t> &list);
     template<Color Us> void generate_bishop_moves(std::vector<move_t> &list);
 
-    bool make_move(move_t m); // return False if fail
+	// apply_flags - Whether to make extra checks to apply the right flags to the move object. Used when applying moves converted from UCI
+	// return False if fail
+    bool make_move(move_t& m, bool apply_flags = false);
     void undo_move(move_t m);
 	
 	// other utils

@@ -2,6 +2,7 @@
 
 #include "board.h"
 #include "bitboard.h"
+#include "debug.h"
 
 board_t::board_t()
 {
@@ -49,18 +50,19 @@ board_t::board_t(std::string fen)
 board_t::board_t(std::vector <move_t> move_hist): board_t()
 {
 	for(auto& move : move_hist)
-		make_move(move);
+		make_move(move, true);
 }
 
 // Making and unmaking moves
-
-bool board_t::make_move(move_t m){
+// Assumes moves are pseudolegal
+bool board_t::make_move(move_t &m, bool apply_flags){
 	if (history.empty())
 		return false;
 
 	const state_t& prev = history.back();
-	Color us = prev.turn;
-	Color them = ~us;
+	Color Us = prev.turn;
+	Color Them = ~Us;
+	int Up = (Us == WHITE) ? 8 : -8;
 
 	int from = m.from();
 	int to = m.to();
@@ -74,46 +76,74 @@ bool board_t::make_move(move_t m){
 	PieceType moving = (signed_piece < 0) ? (PieceType)(-signed_piece) : (PieceType)signed_piece;
 	int flag = m.flag();
 
+	// Apply correct flags to the move object
+	#ifndef DEBUG // If in debug mode, always recompute the flags
+	if (apply_flags) 
+	#endif
+	{
+		if (moving == PAWN) {
+
+			Bitboard PromoRank = (Us == WHITE) ? RankMask[7] : RankMask[0];
+
+			if (flag == QUIET) // Skip if flag is already set (ie for promotion)
+				// Only check for double push and en passant, as promotion is handled when converting from UCI format
+				if (to == from + 2 * Up)
+					flag = DOUBLE_PUSH;
+				else if (prev.ep_square != -1 && to == prev.ep_square) // If moving pawn to ep_square => en passant capture
+					flag = EP_CAPTURE;
+					// Normal pawn capture is caught by the final capture check
+		}
+		else if (moving == KING) {
+			// Check for castling
+			if ((from == E1 && to == G1) || (from == E8 && to == G8)) // King side
+				flag = K_CASTLE;
+			if ((from == E1 && to == C1) || (from == E8 && to == C8)) // Queen side
+				flag = Q_CASTLE;
+		}
+
+		if (occupancy[Them] & to_bb)
+			flag |= CAPTURE;
+
+		if (!apply_flags)
+			// If in debug mode, make sure the flag detected corresponds to the one actually set
+			ASSERT(flag == m.flag(), "apply_flags produced flag " << flag << " instead of " << m.flag());
+		
+		// Modify the old move with new flag
+		m = move_t(from, to, flag);
+	}
+
 	bool is_ep = (flag == EP_CAPTURE);
 	bool is_castle = (flag == K_CASTLE || flag == Q_CASTLE);
 	bool is_promo = (flag & 0b1000) != 0;
 	bool is_double = (flag == DOUBLE_PUSH);
-	bool is_capture = is_ep || (flag & CAPTURE) || (occupancy[them] & to_bb);
+	bool is_capture = is_ep || (flag & CAPTURE) || (occupancy[Them] & to_bb);
 
 	state_t next = prev;
-	next.turn = them;
+	next.turn = Them;
 	next.ep_square = -1;
 	next.captured = NONE;
 
 	if (is_capture && !is_ep) {
 		int cap_signed = mailbox[to];
 		PieceType captured = (cap_signed < 0) ? (PieceType)(-cap_signed) : (PieceType)cap_signed;
-		if (captured == NONE) {
-			for (PieceType p : AllPieceTypes) {
-				if (pieces[p] & to_bb) {
-					captured = (PieceType)p;
-					break;
-				}
-			}
-		}
 		if (captured != NONE) {
 			pieces[captured] &= ~to_bb;
-			occupancy[them] &= ~to_bb;
+			occupancy[Them] &= ~to_bb;
 			next.captured = captured;
 		}
 	}
 
 	if (is_ep) {
-		int cap_sq = to + (us == WHITE ? -8 : 8);
+		int cap_sq = to - Up;
 		Bitboard cap_bb = 1ULL << cap_sq;
 		pieces[PAWN] &= ~cap_bb;
-		occupancy[them] &= ~cap_bb;
+		occupancy[Them] &= ~cap_bb;
 		mailbox[cap_sq] = NONE;
 		next.captured = PAWN;
 	}
 
 	pieces[moving] &= ~from_bb;
-	occupancy[us] &= ~from_bb;
+	occupancy[Us] &= ~from_bb;
 	mailbox[from] = NONE;
 
 	if (is_promo) {
@@ -137,18 +167,18 @@ bool board_t::make_move(move_t m){
 		}
 
 		pieces[promo] |= to_bb;
-		occupancy[us] |= to_bb;
-		mailbox[to] = (us == WHITE) ? promo : (PieceType)(-promo);
+		occupancy[Us] |= to_bb;
+		mailbox[to] = (Us == WHITE) ? promo : (PieceType)(-promo);
 	} else {
 		pieces[moving] |= to_bb;
-		occupancy[us] |= to_bb;
-		mailbox[to] = (us == WHITE) ? moving : (PieceType)(-moving);
+		occupancy[Us] |= to_bb;
+		mailbox[to] = (Us == WHITE) ? moving : (PieceType)(-moving);
 	}
 
 	if (is_castle && moving == KING) {
 		int rook_from = -1;
 		int rook_to = -1;
-		if (us == WHITE) {
+		if (Us == WHITE) {
 			if (flag == K_CASTLE) { rook_from = H1; rook_to = F1; }
 			else { rook_from = A1; rook_to = D1; }
 		} else {
@@ -159,21 +189,21 @@ bool board_t::make_move(move_t m){
 		Bitboard rook_to_bb = 1ULL << rook_to;
 		pieces[ROOK] &= ~rook_from_bb;
 		pieces[ROOK] |= rook_to_bb;
-		occupancy[us] &= ~rook_from_bb;
-		occupancy[us] |= rook_to_bb;
+		occupancy[Us] &= ~rook_from_bb;
+		occupancy[Us] |= rook_to_bb;
 		mailbox[rook_from] = NONE;
-		mailbox[rook_to] = (us == WHITE) ? ROOK : (PieceType)(-ROOK);
+		mailbox[rook_to] = (Us == WHITE) ? ROOK : (PieceType)(-ROOK);
 	}
 
 	int rights = prev.castling_rights;
 	if (moving == KING) {
-		if (us == WHITE)
+		if (Us == WHITE)
 			rights &= ~((1 << 0) | (1 << 1));
 		else
 			rights &= ~((1 << 2) | (1 << 3));
 	}
 	if (moving == ROOK) {
-		if (us == WHITE) {
+		if (Us == WHITE) {
 			if (from == H1) rights &= ~(1 << 0);
 			else if (from == A1) rights &= ~(1 << 1);
 		} else {
@@ -190,7 +220,7 @@ bool board_t::make_move(move_t m){
 
 	next.castling_rights = rights;
 	if (is_double)
-		next.ep_square = from + (us == WHITE ? 8 : -8);
+		next.ep_square = from + Up;
 
 	occupancy[BOTH] = occupancy[WHITE] | occupancy[BLACK];
 	history.push_back(next);
