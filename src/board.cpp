@@ -1,4 +1,5 @@
 #include <bit>
+#include <sstream>
 
 #include "board.h"
 #include "bitboard.h"
@@ -44,7 +45,68 @@ board_t::board_t()
 
 board_t::board_t(std::string fen)
 {
-	//TODO: init board from fen format
+	// 0. Reset state
+	for (auto p : AllPieceTypes) pieces[p] = 0;
+	occupancy[WHITE] = occupancy[BLACK] = occupancy[BOTH] = 0;
+	for (int i = 0; i < 64; ++i) mailbox[i] = NONE;
+
+	std::stringstream ss(fen);
+	std::string pos, side, castling, ep;
+	ss >> pos >> side >> castling >> ep;
+
+	// 1. Pieces
+	int rank = 7, file = 0;
+	for (char c : pos) {
+		if (c == '/') { rank--; file = 0; }
+		else if (isdigit(c)) { file += (c - '0'); }
+		else {
+			int sq = rank * 8 + file;
+			
+			Color col = isupper(c) ? WHITE : BLACK;
+			char lower_c = tolower(c);
+			int type;
+
+			switch (lower_c) {
+			case 'p': type = PAWN;   break;
+			case 'n': type = KNIGHT; break;
+			case 'b': type = BISHOP; break;
+			case 'r': type = ROOK;   break;
+			case 'q': type = QUEEN;  break;
+			case 'k': type = KING;   break;
+			default:  type = NONE;      break;
+			}
+
+			if (type != NONE)
+			{
+				pieces[type] = (1ULL << sq);
+				occupancy[col] = (1ULL << sq);
+				mailbox[sq] = (col == WHITE) ? type : -type;
+			}
+			
+			file++;
+		}
+	}
+
+	// 2. Turn
+	state_t current;
+	current.turn = (side == "w") ? WHITE : BLACK;
+
+	// 3. Castling
+	current.castling_rights = 0;
+	if (castling.find('K') != std::string::npos) current.castling_rights |= (1 << 3);
+	if (castling.find('Q') != std::string::npos) current.castling_rights |= (1 << 2);
+	if (castling.find('k') != std::string::npos) current.castling_rights |= (1 << 1);
+	if (castling.find('q') != std::string::npos) current.castling_rights |= (1 << 0);
+
+	// 4. EP
+	auto string_to_sq = [&](std::string code) {
+		int rank = code[1] - '1';
+		int file = code[0] - 'a';
+		return rank * 8 + file;
+	};
+	current.ep_square = (ep == "-") ? -1 : string_to_sq(ep);
+
+	history.push_back(current);
 }
 
 board_t::board_t(std::vector <move_t> move_hist): board_t()
@@ -323,9 +385,65 @@ void board_t::undo_move(move_t m)
 }
 
 // Other utilities
-std::string to_fen()
+std::string board_t::to_fen() const
 {
-	//TODO: convert board to fen string for debugging
+	std::string fen = "";
+	const state_t& current = history.back();
+
+	for (int r = 7; r >= 0; --r) {
+		int empty = 0;
+		for (int f = 0; f < 8; ++f) {
+			int sq = r * 8 + f;
+			int pc = mailbox[sq];
+			if (pc == 0) {
+				empty++;
+			}
+			else {
+				if (empty > 0) fen += std::to_string(empty);
+				empty = 0;
+
+				if (pc < 0)
+					pc = -pc;
+
+				// Use offest to transform lowercase to uppercase if white piece
+				int offset = ("A" - "a") * ((occupancy[WHITE] >> sq) & 1ULL);
+				switch (pc) {
+					case PAWN:
+						fen += "p" + offset; break;
+					case KNIGHT:
+						fen += "n" + offset; break;
+					case BISHOP:
+						fen += "b" + offset; break;
+					case ROOK:
+						fen += "r" + offset; break;
+					case QUEEN:
+						fen += "q" + offset; break;
+				}
+			}
+		}
+		if (empty > 0) fen += std::to_string(empty);
+		if (r > 0) fen += "/";
+	}
+
+	// Turn
+	fen += (current.turn == WHITE) ? " w " : " b ";
+
+	// Castling
+	if (current.castling_rights == 0) fen += "-";
+	else {
+		if (current.castling_rights & (1 << 3)) fen += "K";
+		if (current.castling_rights & (1 << 2)) fen += "Q";
+		if (current.castling_rights & (1 << 1)) fen += "k";
+		if (current.castling_rights & (1 << 0)) fen += "q";
+	}
+
+	// EP
+	auto sq_to_string = [&](int sq) {
+		return std::string("") + (char)('a' + sq % 8) + (char)('1' + sq / 8); 
+	};
+	fen += " " + (current.ep_square == -1 ? "-" : sq_to_string(current.ep_square));
+
+	return fen;
 }
 
 // Check if a square is attacked by any piece of the given color using bitboard rays/lookup tables
