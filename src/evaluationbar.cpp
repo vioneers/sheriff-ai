@@ -38,7 +38,7 @@ static const int pst[6][64] = {
      5,-5,-10, 0, 0,-10,-5, 5,
      5,10,10,-20,-20,10,10, 5,
      0, 0, 0, 0, 0, 0, 0, 0
-    }, 
+    },
     // N 
     {-50,-40,-30,-30,-30,-30,-40,-50,
      -40,-20,  0,  0,  0,  0,-20,-40,
@@ -89,7 +89,7 @@ static const int pst[6][64] = {
      20, 20, 0, 0, 0, 0, 20,20,
      30, 40, 10,0, 0,10,40,30
     }
-}
+};
 
 // ---------------------------------------------------------
 //  MATERIAL + PST Eval
@@ -104,7 +104,7 @@ int evaluate_material_and_position(board_t* board) {
         piece = std::abs(piece);
         int piece_val = piece_value(piece);
         int bonus = pst[piece - 1][is_black ? mirror_sq(sq) : sq];
-        score += is_black ? -(v + bonus) : +(v + bonus);
+        score += is_black ? -(piece_val + bonus) : +(piece_val + bonus);
     }
     return score;
 }
