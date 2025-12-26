@@ -14,7 +14,7 @@ struct state_t {
 };
 
 struct board_t {
-    Bitboard pieces[6];   // [PieceType]
+    Bitboard pieces[7];   // [PieceType], [0] is unused.
     Bitboard occupancy[3];   // [White, Black, Both]
     int mailbox[64]; // Get pieces by board position (positive values for WHITE, negative for BLACK)
 

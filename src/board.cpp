@@ -23,8 +23,8 @@ board_t::board_t()
         mailbox[i] = NONE; 
     }
 
-    // Iterate over piece types (PAWN to KING)
-    for (int p = PAWN; p <= KING; p++) {
+    // Iterate over piece types
+    for (PieceType p : AllPieceTypes) {
         uint64_t bb = pieces[p];
 
         while (bb) {
@@ -89,7 +89,7 @@ bool board_t::make_move(move_t m){
 		int cap_signed = mailbox[to];
 		PieceType captured = (cap_signed < 0) ? (PieceType)(-cap_signed) : (PieceType)cap_signed;
 		if (captured == NONE) {
-			for (int p = PAWN; p <= KING; ++p) {
+			for (PieceType p : AllPieceTypes) {
 				if (pieces[p] & to_bb) {
 					captured = (PieceType)p;
 					break;
