@@ -115,6 +115,7 @@ constexpr Bitboard index_to_blockers(int index, int bits, Bitboard m)
 
 
 // given a mask of blocker pieces, generate where rook / bishop can move (in an inneficient manner)
+// result is up to and INCLUDING blocker pieces
 // used to test if magic number is good and generate magic lookup tables
 inline constexpr Bitboard ratt(int sq, Bitboard block) {
   Bitboard result = 0ULL;

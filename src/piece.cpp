@@ -181,7 +181,8 @@ void board_t::generate_queen_moves(std::vector<move_t> &list)
 		Bitboard bblockers = occupancy[BOTH] & BishopMask[from];
 		Bitboard bhash = apply_magic(bblockers, BMagic[from], BShift[from]);
 		
-		Bitboard moves = RookAttacks[from][rhash] | BishopAttacks[from][bhash];
+		Bitboard moves = RookAttacks[from][rhash] | BishopAttacks[from][bhash]; // moves including all blockers 
+		moves &= ~own; // remove friendly blockers
 
 		while (moves)
 		{
@@ -207,7 +208,8 @@ void board_t::generate_rook_moves(std::vector<move_t> &list)
 		Bitboard blockers = occupancy[BOTH] & RookMask[from];
 		Bitboard hash = apply_magic(blockers, RMagic[from], RShift[from]);
 
-		Bitboard moves = RookAttacks[from][hash];
+		Bitboard moves = RookAttacks[from][hash]; // moves including all blockers
+		moves &= ~own; // remove friendly blockers
 
 		while (moves)
 		{
@@ -233,7 +235,8 @@ void board_t::generate_bishop_moves(std::vector<move_t> &list)
 		Bitboard blockers = occupancy[BOTH] & BishopMask[from];
 		Bitboard hash = apply_magic(blockers, BMagic[from], BShift[from]);
 
-		Bitboard moves = BishopAttacks[from][hash];
+		Bitboard moves = BishopAttacks[from][hash]; // moves including all blockers
+		moves &= ~own; // remove friendly blockers
 
 		while (moves)
 		{
