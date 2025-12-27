@@ -1,5 +1,8 @@
+#pragma once
+
 #include <iostream>
 #include <cstdlib> // for std::abort
+
 
 // Only compile this in Debug mode
 #ifdef DEBUG
