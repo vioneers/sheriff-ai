@@ -20,7 +20,7 @@ unsigned long long perft(int depth, board_t board){
 int main(){
     std::vector<move_t> move_hist; // empty vector 
     engine_t engine(move_hist);
-    board_t board = engine.board_state;
+    board_t board = engine.board;
     for (int i = 0 ; i < 10 ; i++)
         std::cout << perft(i, board) << '\n'; 
     return 0;

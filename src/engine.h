@@ -4,7 +4,7 @@
 #include "board.h"
 
 struct engine_t {
-	board_t board_state; 	
+	board_t board; 	
     move_t best_move; 
     bool best_move_valid;
 
