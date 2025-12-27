@@ -522,14 +522,15 @@ void board_t::add_move(std::vector<move_t> &list, move_t move)
 	undo_move(move);
 }
 
-void board_t::get_legal_moves(std::vector<move_t> &list, Color color)
+void board_t::get_legal_moves(std::vector<move_t> &list)
 {
 	list.clear();
 
 	std::vector<move_t> pseudo;
 	pseudo.reserve(128);
 
-	if (color == WHITE) {
+	state_t& current = history.back();
+	if (current.turn == WHITE) {
 		generate_pawn_moves<WHITE>(pseudo);
 		generate_knight_moves<WHITE>(pseudo);
 		generate_bishop_moves<WHITE>(pseudo);

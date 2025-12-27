@@ -29,8 +29,8 @@ struct board_t {
 	bool square_attacked(int sq, Color by_color) const;
 	bool in_check(Color by_color) const;
 
-	// generate legal moves and add to list
-	void get_legal_moves(std::vector<move_t> &list, Color color);
+	// generate legal moves for the side to move and add to list
+	void get_legal_moves(std::vector<move_t> &list);
 
 	// verify that move is actually legal and add to list
 	void add_move(std::vector<move_t> &list, move_t move);
