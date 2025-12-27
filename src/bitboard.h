@@ -57,14 +57,14 @@ inline constexpr std::array<Bitboard, 64> KnightAttacks = []() {
         Bitboard bb = 1ULL << sq;
         Bitboard attacks = 0;
 
-        attacks |= (bb << 17) & notH;
-        attacks |= (bb << 15) & notA;
-        attacks |= (bb << 10) & notGH;
-        attacks |= (bb << 6)  & notAB;
-        attacks |= (bb >> 17) & notA;
-        attacks |= (bb >> 15) & notH;
-        attacks |= (bb >> 10) & notAB;
-        attacks |= (bb >> 6)  & notGH;
+        attacks |= (bb & notH) << 17;
+        attacks |= (bb & notA) << 15;
+        attacks |= (bb & notGH) << 10;
+        attacks |= (bb & notAB) << 6;
+        attacks |= (bb & notA) >> 17;
+        attacks |= (bb & notH) >> 15;
+        attacks |= (bb & notAB) >> 10;
+        attacks |= (bb & notGH) >> 6;
 
         table[sq] = attacks;
     }
