@@ -87,7 +87,7 @@ int main(int argc, char* argv[])
 	
 	fout << "// Rook and Bishop shift tables\n\n";
 
-	fout << "const int RShift[64] = {";
+	fout << "constexpr int RShift[64] = {";
 	for(int sq = 0; sq < 64; sq++)
 	{
 		if(sq % 8 == 0)
@@ -96,7 +96,7 @@ int main(int argc, char* argv[])
 	}
 	fout << "}; \n\n";
 	
-	fout << "const int BShift[64] = {";
+	fout << "constexpr int BShift[64] = {";
 	for(int sq = 0; sq < 64; sq++)
 	{
 		if(sq % 8 == 0)
@@ -107,20 +107,20 @@ int main(int argc, char* argv[])
 
 	fout << "// magic numbers tables\n\n";
 
-	fout << "const uint64_t RMagic[64] = {\n";
+	fout << "constexpr uint64_t RMagic[64] = {\n";
 	for(int sq = 0; sq < 64; sq++)
 	{
 		std::cout << "\rcalculating rook magic for sq = " << sq << std::flush;
-		fout << find_magic(sq, 0) << ",\n";
+		fout << find_magic(sq, 0) << "ULL,\n";
 	}
 	std::cout << "\rrook magic done!                  " << std::endl;
 	fout << "};\n\n";
 
-	fout << "const uint64_t BMagic[64] = {\n";
+	fout << "constexpr uint64_t BMagic[64] = {\n";
 	for(int sq = 0; sq < 64; sq++)
 	{
 		std::cout << "\rcalculating bishop magic for sq = " << sq << std::flush;
-		fout << find_magic(sq, 1) << ",\n";
+		fout << find_magic(sq, 1) << "ULL,\n";
 	}
 	std::cout << "\rbishop magic done!                  " << std::endl;
 	fout << "};\n\n";
