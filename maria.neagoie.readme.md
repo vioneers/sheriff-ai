@@ -27,3 +27,4 @@
     - Changed penalty sign issue in `evaluate_pawn_structure()`
 - On bitboards branch: 
     - Switched to bitboards representation for the file `evaluationbar.cpp` (updated `evaluate_material_and_position()`, `evaluate_mobility`,`evaluate_pawn_structure()`) 
+    - Fixes in move generation (especially castling) and perft - perft now outputting right number of total moves, captures, en passants, castlings for given initial board from fen string
