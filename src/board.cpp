@@ -36,7 +36,7 @@ board_t::board_t()
             // Determine color by checking the White occupancy board
             int color = (occupancy[WHITE] & (1ULL << sq)) ? WHITE : BLACK;
 
-            mailbox[sq] = (color == WHITE) ? p : -p; 
+            mailbox[sq] = p; 
         }
     }
 
@@ -64,7 +64,7 @@ board_t::board_t(std::string fen)
 			
 			Color col = isupper(c) ? WHITE : BLACK;
 			char lower_c = tolower(c);
-			int type;
+			PieceType type;
 
 			switch (lower_c) {
 			case 'p': type = PAWN;   break;
@@ -80,7 +80,7 @@ board_t::board_t(std::string fen)
 			{
 				pieces[type] = (1ULL << sq);
 				occupancy[col] = (1ULL << sq);
-				mailbox[sq] = (col == WHITE) ? type : -type;
+				mailbox[sq] = type;
 			}
 			
 			file++;
@@ -131,11 +131,10 @@ bool board_t::make_move(move_t &m, bool apply_flags){
 	Bitboard from_bb = 1ULL << from;
 	Bitboard to_bb = 1ULL << to;
 
-	int signed_piece = mailbox[from];
-	if (signed_piece == NONE)
+	PieceType moving = mailbox[from];
+	if (moving == NONE)
 		return false;
 
-	PieceType moving = (signed_piece < 0) ? (PieceType)(-signed_piece) : (PieceType)signed_piece;
 	int flag = m.flag();
 
 	// Apply correct flags to the move object
@@ -186,8 +185,7 @@ bool board_t::make_move(move_t &m, bool apply_flags){
 	next.captured = NONE;
 
 	if (is_capture && !is_ep) {
-		int cap_signed = mailbox[to];
-		PieceType captured = (cap_signed < 0) ? (PieceType)(-cap_signed) : (PieceType)cap_signed;
+		PieceType captured = mailbox[to];
 		if (captured != NONE) {
 			pieces[captured] &= ~to_bb;
 			occupancy[Them] &= ~to_bb;
@@ -230,11 +228,11 @@ bool board_t::make_move(move_t &m, bool apply_flags){
 
 		pieces[promo] |= to_bb;
 		occupancy[Us] |= to_bb;
-		mailbox[to] = (Us == WHITE) ? promo : (PieceType)(-promo);
+		mailbox[to] = promo;
 	} else {
 		pieces[moving] |= to_bb;
 		occupancy[Us] |= to_bb;
-		mailbox[to] = (Us == WHITE) ? moving : (PieceType)(-moving);
+		mailbox[to] = moving;
 	}
 
 	if (is_castle && moving == KING) {
@@ -254,7 +252,7 @@ bool board_t::make_move(move_t &m, bool apply_flags){
 		occupancy[Us] &= ~rook_from_bb;
 		occupancy[Us] |= rook_to_bb;
 		mailbox[rook_from] = NONE;
-		mailbox[rook_to] = (Us == WHITE) ? ROOK : (PieceType)(-ROOK);
+		mailbox[rook_to] = ROOK;
 	}
 
 	int rights = prev.castling_rights; // bit format is KQkq (uppercase = WHITE)
@@ -336,8 +334,7 @@ void board_t::undo_move(move_t m)
 		occupancy[us] &= ~to_bb;
 		mailbox[to] = NONE;
 	} else {
-		int signed_piece = mailbox[to];
-		moving = (signed_piece < 0) ? (PieceType)(-signed_piece) : (PieceType)signed_piece;
+		moving = mailbox[to];
 		pieces[moving] &= ~to_bb;
 		occupancy[us] &= ~to_bb;
 		mailbox[to] = NONE;
@@ -345,7 +342,7 @@ void board_t::undo_move(move_t m)
 
 	pieces[moving] |= from_bb;
 	occupancy[us] |= from_bb;
-	mailbox[from] = (us == WHITE) ? moving : (PieceType)(-moving);
+	mailbox[from] = moving;
 
 	if (is_castle && moving == KING) {
 		int rook_from = -1;
@@ -364,7 +361,7 @@ void board_t::undo_move(move_t m)
 		occupancy[us] &= ~rook_to_bb;
 		occupancy[us] |= rook_from_bb;
 		mailbox[rook_to] = NONE;
-		mailbox[rook_from] = (us == WHITE) ? ROOK : (PieceType)(-ROOK);
+		mailbox[rook_from] = ROOK;
 	}
 
 	if (last.captured != NONE) {
@@ -373,11 +370,11 @@ void board_t::undo_move(move_t m)
 			Bitboard cap_bb = 1ULL << cap_sq;
 			pieces[PAWN] |= cap_bb;
 			occupancy[them] |= cap_bb;
-			mailbox[cap_sq] = (them == WHITE) ? PAWN : (PieceType)(-PAWN);
+			mailbox[cap_sq] = PAWN;
 		} else {
 			pieces[last.captured] |= to_bb;
 			occupancy[them] |= to_bb;
-			mailbox[to] = (them == WHITE) ? (PieceType)last.captured : (PieceType)(-last.captured);
+			mailbox[to] = last.captured;
 		}
 	}
 
@@ -402,10 +399,8 @@ std::string board_t::to_fen() const
 				if (empty > 0) fen += std::to_string(empty);
 				empty = 0;
 
-				if (pc < 0)
-					pc = -pc;
-
 				// Use offest to transform lowercase to uppercase if white piece
+				// Offset is ("A" - "a") for white piece, 0 for black.
 				int offset = ("A" - "a") * ((occupancy[WHITE] >> sq) & 1ULL);
 				switch (pc) {
 					case PAWN:

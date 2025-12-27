@@ -9,14 +9,14 @@ struct state_t {
     uint64_t z_key;          // Zobrist hash for Transposition Table //TODO
     int castling_rights;     // Bitmask (4 bits for KQkq)
     int ep_square;           // En passant target square
-    int captured;			 // last piece to be captured
+    PieceType captured;			 // last piece to be captured
 	Color turn; // BLACK / WHITE
 };
 
 struct board_t {
     Bitboard pieces[7];   // [PieceType], [0] is unused.
     Bitboard occupancy[3];   // [White, Black, Both]
-    int mailbox[64]; // Get pieces by board position (positive values for WHITE, negative for BLACK)
+    PieceType mailbox[64]; // Get pieces by board position (to get color use occupancy[WHITE])
 
     // History stack for unmake_move
     std::vector<state_t> history;

@@ -97,11 +97,10 @@ static const int pst[6][64] = {
 int evaluate_material_and_position(board_t* board) {
     int score = 0;
     for (int sq = 0; sq < 64; sq++){
-        int piece = board->mailbox[sq];
+        PieceType piece = board->mailbox[sq];
         if (piece == NONE) // no piece
             continue;
-        bool is_black = (piece < 0); // negative => black; positive => white
-        piece = std::abs(piece);
+        bool is_black = (board->occupancy[WHITE] >> sq) & 1ULL;
         int piece_val = piece_value(piece);
         int bonus = pst[piece - 1][is_black ? mirror_sq(sq) : sq];
         score += is_black ? -(piece_val + bonus) : +(piece_val + bonus);
@@ -135,10 +134,10 @@ int evaluate_pawn_structure(board_t* board) {
     int pawnsW[8]={0}, pawnsB[8]={0};
 
     for (int sq = 0; sq < 64; sq++){
-        int piece = board->mailbox[sq];
-        if (std::abs(piece) != PAWN) 
+        PieceType piece = board->mailbox[sq];
+        if (piece != PAWN) 
             continue;
-        bool is_black = (piece < 0); // negative => black; positive => white
+        bool is_black = (board->occupancy[WHITE] >> sq) & 1ULL;
         int file = sq & 7; // sq % 8
         if(is_black)
             pawnsB[file]++;
