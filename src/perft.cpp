@@ -5,7 +5,8 @@
 // Perft (performance test, move path enumeration) algorithm to check that we generate all legal moves
 unsigned long long perft(int depth, board_t board){
     std::vector <move_t> legal;
-    board.get_legal_moves(legal);
+    Color turn = board.history.back().turn;
+    board.get_legal_moves(legal, turn);
     unsigned long long nodes = 0;
     if (depth == 0) 
         return 1ULL;

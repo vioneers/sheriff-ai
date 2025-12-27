@@ -36,8 +36,8 @@ int main(int argc, char* argv[])
 	engine.time_up = false;
 
 	vector<move_t> legal;
-	Color turn = engine.board_state.history.back().turn;
-	engine.board_state.get_legal_moves(legal, turn);
+	Color turn = engine.board.history.back().turn;
+	engine.board.get_legal_moves(legal, turn);
 	if (!legal.empty()){ // In case we're close to a timeout, just output a random legal move for now
 		std::mt19937 rng(std::random_device{}());
 		std::uniform_int_distribution<int> dist(0, (int)legal.size() - 1);

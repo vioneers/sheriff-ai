@@ -40,7 +40,7 @@ board_t::board_t()
         }
     }
 
-	history.emplace_back(0, (1 << 4) - 1, -1, NONE, WHITE); // z_key, castling_rights, ep_square, captured, turn
+	history.push_back({0, (1 << 4) - 1, -1, NONE, WHITE}); // z_key, castling_rights, ep_square, captured, turn
 }
 
 board_t::board_t(std::string fen)
@@ -522,15 +522,14 @@ void board_t::add_move(std::vector<move_t> &list, move_t move)
 	undo_move(move);
 }
 
-void board_t::get_legal_moves(std::vector<move_t> &list)
+void board_t::get_legal_moves(std::vector<move_t> &list, Color color)
 {
 	list.clear();
 
 	std::vector<move_t> pseudo;
 	pseudo.reserve(128);
 
-	state_t& current = history.back();
-	if (current.turn == WHITE) {
+	if (color == WHITE) {
 		generate_pawn_moves<WHITE>(pseudo);
 		generate_knight_moves<WHITE>(pseudo);
 		generate_bishop_moves<WHITE>(pseudo);

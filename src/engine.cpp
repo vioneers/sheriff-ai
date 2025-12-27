@@ -81,7 +81,8 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root){
     int best = -INF;
 
     std::vector <move_t> legal;
-    board.get_legal_moves(legal); 
+    Color turn = board.history.back().turn;
+    board.get_legal_moves(legal, turn); 
 
     std::sort(legal.begin(), legal.end(), [&](const move_t& a, const move_t& b){
         return move_order_score(a, board) > move_order_score(b, board);
@@ -129,7 +130,8 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root){
     int best = INF;
 
     std::vector <move_t> legal;
-    board.get_legal_moves(legal);
+    Color turn = board.history.back().turn;
+    board.get_legal_moves(legal, turn);
 
     std::sort(legal.begin(), legal.end(), [&](const move_t& a, const move_t& b){
         return move_order_score(a, board) > move_order_score(b, board);
