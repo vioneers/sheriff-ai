@@ -73,19 +73,21 @@ board_t::board_t(std::string fen)
 			case 'r': type = ROOK;   break;
 			case 'q': type = QUEEN;  break;
 			case 'k': type = KING;   break;
-			default:  type = NONE;      break;
+			default:  type = NONE;   break;
 			}
 
 			if (type != NONE)
 			{
-				pieces[type] = (1ULL << sq);
-				occupancy[col] = (1ULL << sq);
+				pieces[type] |= (1ULL << sq);
+				occupancy[col] |= (1ULL << sq);
 				mailbox[sq] = type;
+				// std::cout << lower_c << " " << sq << '\n';
 			}
 			
 			file++;
 		}
 	}
+	occupancy[BOTH] = occupancy[WHITE] | occupancy[BLACK];
 
 	// 2. Turn
 	state_t current;
@@ -273,7 +275,7 @@ bool board_t::make_move(move_t &m, bool apply_flags){
 	}
 	if (is_capture && !is_ep) {
 		if (to == H1) rights &= ~(1 << 3);
-		else if (to == A1) rights &= ~(1 << 1);
+		else if (to == A1) rights &= ~(1 << 2);
 		else if (to == H8) rights &= ~(1 << 1);
 		else if (to == A8) rights &= ~(1 << 0);
 	}
@@ -400,19 +402,21 @@ std::string board_t::to_fen() const
 				empty = 0;
 
 				// Use offest to transform lowercase to uppercase if white piece
-				// Offset is ("A" - "a") for white piece, 0 for black.
-				int offset = ("A" - "a") * ((occupancy[WHITE] >> sq) & 1ULL);
+				// Offset is ('A' - 'a') for white piece, 0 for black.
+				char offset = ('A' - 'a') * ((occupancy[WHITE] >> sq) & 1ULL);
 				switch (pc) {
 					case PAWN:
-						fen += "p" + offset; break;
+						fen += 'p' + offset; break;
 					case KNIGHT:
-						fen += "n" + offset; break;
+						fen += 'n' + offset; break;
 					case BISHOP:
-						fen += "b" + offset; break;
+						fen += 'b' + offset; break;
 					case ROOK:
-						fen += "r" + offset; break;
+						fen += 'r' + offset; break;
 					case QUEEN:
-						fen += "q" + offset; break;
+						fen += 'q' + offset; break;
+					case KING:
+						fen += 'k' + offset; break;
 				}
 			}
 		}
