@@ -257,27 +257,27 @@ bool board_t::make_move(move_t &m, bool apply_flags){
 		mailbox[rook_to] = (Us == WHITE) ? ROOK : (PieceType)(-ROOK);
 	}
 
-	int rights = prev.castling_rights;
+	int rights = prev.castling_rights; // bit format is KQkq (uppercase = WHITE)
 	if (moving == KING) {
 		if (Us == WHITE)
-			rights &= ~((1 << 0) | (1 << 1));
-		else
 			rights &= ~((1 << 2) | (1 << 3));
+		else
+			rights &= ~((1 << 0) | (1 << 1));
 	}
 	if (moving == ROOK) {
 		if (Us == WHITE) {
-			if (from == H1) rights &= ~(1 << 0);
-			else if (from == A1) rights &= ~(1 << 1);
+			if (from == H1) rights &= ~(1 << 3);
+			else if (from == A1) rights &= ~(1 << 2);
 		} else {
-			if (from == H8) rights &= ~(1 << 2);
-			else if (from == A8) rights &= ~(1 << 3);
+			if (from == H8) rights &= ~(1 << 1);
+			else if (from == A8) rights &= ~(1 << 0);
 		}
 	}
 	if (is_capture && !is_ep) {
-		if (to == H1) rights &= ~(1 << 0);
+		if (to == H1) rights &= ~(1 << 3);
 		else if (to == A1) rights &= ~(1 << 1);
-		else if (to == H8) rights &= ~(1 << 2);
-		else if (to == A8) rights &= ~(1 << 3);
+		else if (to == H8) rights &= ~(1 << 1);
+		else if (to == A8) rights &= ~(1 << 0);
 	}
 
 	next.castling_rights = rights;

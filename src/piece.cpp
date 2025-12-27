@@ -142,6 +142,7 @@ void board_t::generate_king_moves(std::vector<move_t> &list)
 	}
 	
 	// Add castling moves
+	// see cast;in_rights format in board.h
 	state_t& state = history.back();
 
 	Bitboard FG1 = (1ULL << F1) | (1ULL << G1);
@@ -150,15 +151,15 @@ void board_t::generate_king_moves(std::vector<move_t> &list)
 	Bitboard BCD8 = (BCD1 << 8 * 7);
 
 	if (Us == WHITE) {
-		if (state.castling_rights & (1 << 0) && (occupancy[BOTH] & FG1) == 0) // White King side
+		if (state.castling_rights & (1 << 3) && (occupancy[BOTH] & FG1) == 0) // White King side
 			list.emplace_back(E1, G1, K_CASTLE);
-		if (state.castling_rights & (1 << 1) && (occupancy[BOTH] & BCD1) == 0) // White Queen side
+		if (state.castling_rights & (1 << 2) && (occupancy[BOTH] & BCD1) == 0) // White Queen side
 			list.emplace_back(E1, C1, Q_CASTLE);
 	}
 	else {
-		if (state.castling_rights & (1 << 2) && (occupancy[BOTH] & FG8) == 0) // Black King side
+		if (state.castling_rights & (1 << 1) && (occupancy[BOTH] & FG8) == 0) // Black King side
 			list.emplace_back(E8, G8, K_CASTLE);
-		if (state.castling_rights & (1 << 3) && (occupancy[BOTH] & BCD8) == 0) // Black Queen side
+		if (state.castling_rights & (1 << 0) && (occupancy[BOTH] & BCD8) == 0) // Black Queen side
 			list.emplace_back(E8, C8, Q_CASTLE);
 	}
 }
