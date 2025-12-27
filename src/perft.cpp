@@ -16,9 +16,12 @@ unsigned long long perft(int depth, board_t board){
                 case K_CASTLE: castle++; break;
                 case Q_CASTLE: castle++; break;
                 case EP_CAPTURE: en_passant++; break;
-                case CAPTURE: capture++; break;
                 default: break;
             }
+            if (move.flag() & PROMO_N)
+                promotion++; 
+            if (move.flag() & CAPTURE)
+                capture++; 
         }
         board.make_move(move); 
         nodes += perft(depth - 1, board);
@@ -33,14 +36,17 @@ int main(){
     board_t board = engine.board;*/
     board_t board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -");
     std::cout << board.to_fen() << '\n';
-    /*for (int i = 0 ; i < 10 ; i++)
+    for (int i = 0 ; i < 10 ; i++){
+        castle = capture = en_passant = promotion = 0;
         std::cout << perft(i, board) << '\n';
-    std::vector <move_t> legal;
+        std::cout << castle << " " << capture << " " << en_passant << " " << promotion << '\n';
+    }
+    /*std::vector <move_t> legal;
     Color turn = board.history.back().turn;
     board.get_legal_moves(legal, turn);
     for (auto& move : legal)
         std::cout << move.to_code() << '\n';*/
-    int nodes = perft(2, board);
-    std::cout << castle << " " << capture << " " << en_passant << " " << '\n';
+    /*int nodes = perft(3, board);
+    std::cout << castle << " " << capture << " " << en_passant << " " << promotion << '\n';*/
     return 0;
 }
