@@ -52,3 +52,6 @@ struct board_t {
 	// other utils
 	std::string to_fen() const;
 };
+
+// Include implementations of template functions at the bottom
+#include "movegen.h"

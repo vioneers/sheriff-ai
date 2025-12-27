@@ -1,4 +1,5 @@
-#include "board.h"
+#pragma once
+
 #include "bitboard.h"
 
 template<Color Us> 

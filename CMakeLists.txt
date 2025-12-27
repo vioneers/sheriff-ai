@@ -11,7 +11,6 @@ set(MAGIC_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/src/magic.h")
 set(ENGINE_SOURCES
     src/engine.cpp
     src/board.cpp
-    src/piece.cpp
     src/move.cpp
 	src/evaluationbar.cpp
 	${MAGIC_HEADER}

@@ -9,7 +9,7 @@ using Bitboard = uint64_t;
 // changed NONE to be first (=0) because we use negative = black, so we cannot have the pawn to be first (+-0)
 // Used as indexes of board_t::pieces. Make sure numbers are consecutive and NONE = 0.
 enum PieceType {NONE = 0, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING};
-PieceType AllPieceTypes[] = {PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING}; // Used to iterate over all piece types
+constexpr PieceType AllPieceTypes[] = {PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING}; // Used to iterate over all piece types
 
 enum Color { WHITE, BLACK, BOTH };
 

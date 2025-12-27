@@ -208,24 +208,23 @@ inline constexpr std::array<Bitboard, 64> BishopMask = bmask();
 
 #ifndef MAKE_MAGIC
 // generate magic lookup table for rook and bishop (indexed by square and magic hash)
-const std::array<std::array<Bitboard, 4096>, 64> magicLookUpGen(int bishop)
+inline constexpr std::array<std::array<Bitboard, 4096>, 64> magicLookUpGen(int bishop)
 {
 	std::array<std::array<Bitboard, 4096>, 64> magicLookUp;
 	for(int sq = 0; sq < 64; sq ++)
 	{
 		Bitboard mask = bishop? BishopMask[sq] : RookMask[sq];
-		int n = std::popcount(mask);
+		int shift = bishop ? BShift[sq] : RShift[sq];
 
 		// generate all blocker configurations and the positions we can move to for each
 		Bitboard block[4096], attack[4096]; // we have at most 12 positions we are interested in, so 2^12 masks
 
-		for (int i = 0; i < (1<<n); i++)
+		for (int i = 0; i < (1<<shift); i++)
 		{
-			block[i] = index_to_blockers(i, n, mask);
+			block[i] = index_to_blockers(i, shift, mask);
 			attack[i] = bishop? batt(sq, block[i]) : ratt(sq, block[i]);
 			
 			uint64_t magic = bishop? BMagic[sq] : RMagic[sq];
-			int shift = bishop? BShift[sq] : RShift[sq];
 
 			uint64_t hash = apply_magic(block[i], magic, shift);
 			magicLookUp[sq][hash] = attack[i];
