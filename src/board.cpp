@@ -526,9 +526,11 @@ void board_t::add_move(std::vector<move_t> &list, move_t move)
 	undo_move(move);
 }
 
-void board_t::get_legal_moves(std::vector<move_t> &list, Color color)
+void board_t::get_legal_moves(std::vector<move_t> &list)
 {
 	list.clear();
+
+	Color color = history.empty() ? WHITE : history.back().turn;
 
 	std::vector<move_t> pseudo;
 	pseudo.reserve(128);
