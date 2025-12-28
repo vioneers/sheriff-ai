@@ -120,7 +120,6 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
         board.undo_move(move);
 
         bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
-        bool improves_alpha = score > alpha;
         
         if (score >= best){
             if (is_root){
@@ -145,9 +144,6 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
             }
             return score;
         }
-        if (is_quiet && improves_alpha){
-            history_table[move.from()][move.to()] += depth_left * depth_left;
-        }
     }
     return best;
 }
@@ -163,7 +159,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
         time_up = true;
         
     if (time_up || depth_left == 0) 
-        return -evaluate();
+        return evaluate();
 
     int best = INF;
 
@@ -189,7 +185,6 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
         board.undo_move(move);
 
         bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
-        bool improves_beta = score < beta;
         
         if (score <= best){
             if (is_root){
@@ -213,9 +208,6 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
                 }
             }
             return score;
-        }
-        if (is_quiet && improves_beta){
-            history_table[move.from()][move.to()] += depth_left * depth_left;
         }
     }
     return best;
