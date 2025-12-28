@@ -15,9 +15,9 @@ static string compute_bestmove(const vector<move_t>& move_hist) {
     engine_t engine(move_hist);
 
     if(move_hist.size() % 2 == 0)
-		engine.alphaBetaMax(-1e9, 1e9, 5);
+		engine.alphaBetaMax(-1e9, 1e9, 6);
 	else
-		engine.alphaBetaMin(-1e9, 1e9, 5);
+		engine.alphaBetaMin(-1e9, 1e9, 6);
 
     if(!engine.best_move_valid)
         return "0000"; // UCI “no move” sentinel for terminal nodes
