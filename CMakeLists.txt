@@ -3,6 +3,9 @@ project(Sheriff-AI LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 
+if(MSVC)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:10000000")
+endif()
 
 # Generate magic.h in src/
 # To force it to regenerate we have to manually remove the file.
