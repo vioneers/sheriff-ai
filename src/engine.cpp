@@ -1,6 +1,9 @@
 #include <vector>
 #include <limits>
 #include <algorithm>
+#ifdef SHERIFF_DEBUG_PV
+#include <iostream>
+#endif
 
 #include "engine.h"
 #include "evaluationbar.h"
@@ -19,6 +22,49 @@ static int mv_piece_value(PieceType s){
         default: return 0;
     }
 }
+
+#ifdef SHERIFF_DEBUG_PV
+static void update_pv(engine_t& eng, int ply, const move_t& move){
+    eng.pv_moves[ply][0] = move;
+    int child_len = (ply + 1 < engine_t::MAX_PLY) ? eng.pv_length[ply + 1] : 0;
+    if (child_len > engine_t::MAX_PLY - 1)
+        child_len = engine_t::MAX_PLY - 1;
+    for (int i = 0; i < child_len; ++i)
+        eng.pv_moves[ply][i + 1] = eng.pv_moves[ply + 1][i];
+    eng.pv_length[ply] = child_len + 1;
+}
+
+static bool is_better_score(int score, int best, bool maximizing){
+    return maximizing ? (score > best) : (score < best);
+}
+
+static void update_root_lines(engine_t& eng, const move_t& move, int score, int ply, bool maximizing){
+    engine_t::root_line_t line;
+    line.move = move;
+    line.score = score;
+    int child_len = (ply + 1 < engine_t::MAX_PLY) ? eng.pv_length[ply + 1] : 0;
+    if (child_len > engine_t::MAX_PLY - 1)
+        child_len = engine_t::MAX_PLY - 1;
+    line.pv_len = child_len + 1;
+    line.pv[0] = move;
+    for (int i = 0; i < child_len; ++i)
+        line.pv[i + 1] = eng.pv_moves[ply + 1][i];
+    line.valid = true;
+
+    for (int i = 0; i < 3; ++i){
+        if (!eng.root_lines[i].valid){
+            eng.root_lines[i] = line;
+            return;
+        }
+        if (is_better_score(score, eng.root_lines[i].score, maximizing)){
+            for (int j = 2; j > i; --j)
+                eng.root_lines[j] = eng.root_lines[j - 1];
+            eng.root_lines[i] = line;
+            return;
+        }
+    }
+}
+#endif
 
 int engine_t::move_order_score(const move_t& m, int ply){
     PieceType mover = board.mailbox[m.from()];
@@ -86,26 +132,38 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
     if (is_root && ply == 0){
         std::fill(&killer_moves[0][0], &killer_moves[0][0] + (MAX_PLY * 2), 0);
         std::fill(&history_table[0][0], &history_table[0][0] + (64 * 64), 0);
+#ifdef SHERIFF_DEBUG_PV
+        std::fill(&pv_length[0], &pv_length[0] + MAX_PLY, 0);
+        for (int i = 0; i < 3; ++i)
+            root_lines[i].valid = false;
+#endif
     }
 
     if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
         time_up = true;
 
-    if (time_up || depth_left == 0) 
+    if (time_up || depth_left == 0) {
+#ifdef SHERIFF_DEBUG_PV
+        pv_length[ply] = 0;
+#endif
         return evaluate();
+    }
 
     int best = -INF;
 
     std::vector <move_t> legal;
     board.get_legal_moves(legal); 
 
-    std::sort(legal.begin(), legal.end(), [&](const move_t& a, const move_t& b){
+    std::stable_sort(legal.begin(), legal.end(), [&](const move_t& a, const move_t& b){
         return move_order_score(a, ply) > move_order_score(b, ply);
     });
     
     if (legal.empty()){
         if (is_root)
             best_move_valid = false;
+#ifdef SHERIFF_DEBUG_PV
+        pv_length[ply] = 0;
+#endif
         return board.in_check(board.history.back().turn) ? -MATE_SCORE + depth_left : 0; // checkmate or stalemate
     }
 
@@ -120,13 +178,21 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
         board.undo_move(move);
 
         bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
+
+#ifdef SHERIFF_DEBUG_PV
+        if (is_root)
+            update_root_lines(*this, move, score, ply, true);
+#endif
         
-        if (score >= best){
+        if (score > best){
             if (is_root){
                 best_move = move;
                 best_move_valid = true;
             }
             best = score;
+#ifdef SHERIFF_DEBUG_PV
+            update_pv(*this, ply, move);
+#endif
             if (score > alpha)
                 alpha = score; 
         }
@@ -153,26 +219,38 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
     if (is_root && ply == 0){
         std::fill(&killer_moves[0][0], &killer_moves[0][0] + (MAX_PLY * 2), 0);
         std::fill(&history_table[0][0], &history_table[0][0] + (64 * 64), 0);
+#ifdef SHERIFF_DEBUG_PV
+        std::fill(&pv_length[0], &pv_length[0] + MAX_PLY, 0);
+        for (int i = 0; i < 3; ++i)
+            root_lines[i].valid = false;
+#endif
     }
 
     if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
         time_up = true;
         
-    if (time_up || depth_left == 0) 
+    if (time_up || depth_left == 0) {
+#ifdef SHERIFF_DEBUG_PV
+        pv_length[ply] = 0;
+#endif
         return evaluate();
+    }
 
     int best = INF;
 
     std::vector <move_t> legal;
     board.get_legal_moves(legal);
 
-    std::sort(legal.begin(), legal.end(), [&](const move_t& a, const move_t& b){
+    std::stable_sort(legal.begin(), legal.end(), [&](const move_t& a, const move_t& b){
         return move_order_score(a, ply) > move_order_score(b, ply);
     });
 
     if (legal.empty()){
         if (is_root)
             best_move_valid = false;
+#ifdef SHERIFF_DEBUG_PV
+        pv_length[ply] = 0;
+#endif
         return board.in_check(board.history.back().turn) ? MATE_SCORE - depth_left : 0; // checkmate or stalemate
     }
     if (is_root){
@@ -185,13 +263,21 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
         board.undo_move(move);
 
         bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
+
+#ifdef SHERIFF_DEBUG_PV
+        if (is_root)
+            update_root_lines(*this, move, score, ply, false);
+#endif
         
-        if (score <= best){
+        if (score < best){
             if (is_root){
                 best_move = move;
                 best_move_valid = true;
             }
             best = score;
+#ifdef SHERIFF_DEBUG_PV
+            update_pv(*this, ply, move);
+#endif
             if (score < beta)
                 beta = score; 
         }
@@ -212,3 +298,17 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
     }
     return best;
 }
+
+#ifdef SHERIFF_DEBUG_PV
+void engine_t::log_root_lines() const {
+    for (int i = 0; i < 3; ++i){
+        const auto& line = root_lines[i];
+        if (!line.valid)
+            continue;
+        std::cout << "info string root" << (i + 1) << " score " << line.score << " pv";
+        for (int j = 0; j < line.pv_len; ++j)
+            std::cout << " " << line.pv[j].to_code();
+        std::cout << '\n';
+    }
+}
+#endif

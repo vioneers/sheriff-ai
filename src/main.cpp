@@ -50,6 +50,9 @@ int main(int argc, char* argv[])
         outFile.close(); // leave empty to signal no legal moves
         return 0;
     }
+#ifdef SHERIFF_DEBUG_PV
+    engine.log_root_lines();
+#endif
 	write_move(engine.best_move, out_file_name);
 
     return 0;
@@ -57,3 +60,7 @@ int main(int argc, char* argv[])
 
 
 // Build with "cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release"
+
+// FOR DEBUGGING: "cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DSHERIFF_DEBUG_PV=ON && cmake --build build --config Release"
+
+// Run with "./build/sheriff-ai -H input.txt -m output.txt"

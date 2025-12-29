@@ -3,6 +3,8 @@ project(Sheriff-AI LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 
+option(SHERIFF_DEBUG_PV "Enable root PV debug logging" OFF)
+
 if(MSVC)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:10000000")
 endif()
@@ -54,6 +56,10 @@ add_compile_definitions(
 	    # If the debug configuration pass the DEBUG define to the compiler
         $<$<CONFIG:Debug>:DEBUG>
 )
+
+if(SHERIFF_DEBUG_PV)
+    add_compile_definitions(SHERIFF_DEBUG_PV)
+endif()
 
 # use 
 # cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug

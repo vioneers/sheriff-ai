@@ -29,7 +29,7 @@ move_t::move_t(const std::string& code)
     data = (flags << 12) | (to_sq << 6) | from_sq;
 }
 
-std::string move_t::to_code()
+std::string move_t::to_code() const
 {
 	int from_sq = from();
 	int to_sq = to();
@@ -53,4 +53,3 @@ std::string move_t::to_code()
 	
 	return code;
 }
-
