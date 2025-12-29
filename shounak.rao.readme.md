@@ -28,4 +28,6 @@ Additions :
 ## Week 5
 - Implemented `get_legal_moves()` and `add_move` for the bitboard implementation.
 - Implemented `make_move()` and `undo_move()`.
-
+- Resolved ties between moves with same move score heuristic by picking the first move.
+- Implemented `move_order_score()` for the bitboard implementation to sort moves before calling the AlphaBeta.
+- Added a debugging mode which tracks the three best moves at each position and outputs the lines which gave those bestmoves.
