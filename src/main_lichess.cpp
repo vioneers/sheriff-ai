@@ -6,7 +6,6 @@
 #include "utils.h"
 #include "move.h"
 #include "engine.h"
-// #include "piece.h"
 #include "board.h"
 
 using namespace std;
@@ -28,9 +27,9 @@ static string compute_bestmove(const vector<move_t>& move_hist, const string& fe
 
     Color turn = engine.board.history.back().turn;
     if (turn == WHITE)
-        engine.alphaBetaMax(-1e9, 1e9, 8);
+        engine.alphaBetaMax(-1e9, 1e9, engine_t::DEFAULT_SEARCH_DEPTH);
     else
-        engine.alphaBetaMin(-1e9, 1e9, 8);
+        engine.alphaBetaMin(-1e9, 1e9, engine_t::DEFAULT_SEARCH_DEPTH);
 
     if(!engine.best_move_valid)
         return "0000"; // UCI “no move” sentinel for terminal nodes

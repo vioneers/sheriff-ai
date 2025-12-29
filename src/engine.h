@@ -9,6 +9,7 @@ struct engine_t {
     bool best_move_valid;
 
     static constexpr int MAX_PLY = 64;
+    static constexpr int DEFAULT_SEARCH_DEPTH = 6;
     uint16_t killer_moves[MAX_PLY][2]{};
     int history_table[64][64]{};
 
