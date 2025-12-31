@@ -32,7 +32,7 @@ int main(int argc, char* argv[])
 	
 	using clock = std::chrono::steady_clock;
 	engine.start_time = clock::now();
-	engine.time_limit = std::chrono::milliseconds(9000);  // ~9 seconds
+	engine.time_limit = std::chrono::milliseconds(9800);  // ~9 seconds
 	engine.time_up = false;
 
 	// if playing White, you are maximizing, else minimize
