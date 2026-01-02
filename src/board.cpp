@@ -1,539 +1,556 @@
-#include <cmath>
-#include <random>
-#include <unordered_map>
-#include <cctype>
+#include <bit>
+#include <sstream>
+
 #include "board.h"
-#include "piece.h"
-#include "engine.h"
+#include "bitboard.h"
+#include "debug.h"
 
-uint64_t random64(uint64_t &x){ // to generate random numbers
-    static std::mt19937_64 rng(0xC0FFEE123456789ULL); 
-    return rng();
-}
-
-int base_index(char ch){
-    switch(ch){
-        case 'P': return 0;
-        case 'N': return 1;
-        case 'B': return 2; 
-        case 'R': return 3;
-        case 'Q': return 4;
-        case 'K': return 5;
-        default: return -1;
-    }
-}
-int index(piece_t* piece){
-    int base = base_index(piece->symbol);
-    if (base == -1)
-        return -1; 
-    return (piece->color ? 6 : 0) + base;
-}
-
-uint64_t Z_PSQ[12][64];
-uint64_t Z_TURN; 
-uint64_t Z_CASTLE[16];
-uint64_t Z_EPFILE[9];
-bool Z_INIT = false;
-
-void init_zobrist(){
-    if (Z_INIT)
-        return; 
-    uint64_t seed = 0xC0FFEE123456789ULL;
-
-    for (int piece = 0; piece < 12; piece++) // 12 types of pieces
-    {
-        for (int square = 0; square < 64; square++) // 64 squares on the board
-            Z_PSQ[piece][square] = random64(seed);
-    }
-    // Turn (black or white)
-    Z_TURN = random64(seed);
-
-    // Castles
-    for (int i = 0; i < 16; i++)
-        Z_CASTLE[i] = random64(seed);
-    
-    // En passant (one extra file for the no en passant case) 
-    for (int i = 0; i < 9; i++)
-        Z_EPFILE[i] = random64(seed);
-}
-
-board_t::board_t() { // init an empty board
-    turn = false; // Starting => White
-
-	for (int rank = 0; rank < 8; rank++)
-        for (int file = 0; file < 8; file++)
-            board[rank][file] = nullptr;
-
-    bool WK_castle = true;
-	bool WQ_castle = true;
-	bool BK_castle = true;
-	bool BQ_castle = true;
-
-    int ep_rank = -1;
-    int ep_file = -1;
-
-	bool ep_played = false;
-
-	piece_t* captured = nullptr;
-
-    params_t params {WK_castle, WQ_castle, BK_castle, BQ_castle, ep_rank, ep_file, ep_played, captured};
-
-	param_stack.push_back(params);
-
-    key = compute_key();
-    key_history.clear();
-    key_history.push_back(key);
-    repetition_count.clear();
-    repetition_count[key] = 1;
-    irreversible_stack.clear();
-    last_irreversible_index = 0;
-}
-
-board_t::board_t(std::array <piece_t*, 12> pieces): board_t(){ // init board with inital piece placement
-	this->pieces = pieces;
-
-    // Pawns
-    for (int j = 0; j < 8; j++) {
-        board[1][j] = pieces[PAWN_B];
-        board[6][j] = pieces[PAWN_W];
-    }
-
-    // Black back rank
-    board[0][0] = pieces[ROOK_B];
-    board[0][1] = pieces[KNIGHT_B];
-    board[0][2] = pieces[BISHOP_B];
-    board[0][3] = pieces[QUEEN_B];
-    board[0][4] = pieces[KING_B];
-    board[0][5] = pieces[BISHOP_B];
-    board[0][6] = pieces[KNIGHT_B];
-    board[0][7] = pieces[ROOK_B];
-
-    // White back rank
-    board[7][0] = pieces[ROOK_W];
-    board[7][1] = pieces[KNIGHT_W];
-    board[7][2] = pieces[BISHOP_W];
-    board[7][3] = pieces[QUEEN_W];
-    board[7][4] = pieces[KING_W];
-    board[7][5] = pieces[BISHOP_W];
-    board[7][6] = pieces[KNIGHT_W];
-    board[7][7] = pieces[ROOK_W];
-
-    key = compute_key();
-    key_history.clear();
-    key_history.push_back(key);
-    repetition_count.clear();
-    repetition_count[key] = 1;
-    irreversible_stack.clear();
-    last_irreversible_index = 0;
-}
-
-board_t::board_t(std::vector <move_t> move_hist, std::array <piece_t*, 12> pieces) : board_t(pieces) {
-    for (auto& move: move_hist)
-		make_move(move);
-}
-
-piece_t* board_t::get_piece(int rank, int file) const
+board_t::board_t()
 {
-    return board[rank][file];
-}
+	Bitboard rank1 = (1ULL<<8) - 1;
 
-bool board_t::is_threefold() const{
-    auto it = repetition_count.find(key);
-    return it != repetition_count.end() && it->second >= 3;
-}
+	pieces[PAWN]   = (rank1 << 8) | (rank1 << (8*6)); 
+    pieces[KNIGHT] = (1ULL<<B1) | (1ULL<<G1) | (1ULL<<B8) | (1ULL<<G8);
+    pieces[BISHOP] = (1ULL<<C1) | (1ULL<<F1) | (1ULL<<C8) | (1ULL<<F8);
+    pieces[ROOK]   = (1ULL<<A1) | (1ULL<<H1) | (1ULL<<A8) | (1ULL<<H8); 
+    pieces[QUEEN]  = (1ULL<<D1) | (1ULL<<D8);
+    pieces[KING]   = (1ULL<<E1) | (1ULL<<E8);
 
-bool board_t::check_in_between(int fr, int ff, int tr, int tf) const {
-    int step_r = (tr > fr) - (tr < fr); 
-    int step_f = (tf > ff) - (tf < ff); 
-    for (int r = fr + step_r, f = ff + step_f; r != tr || f != tf; r += step_r, f += step_f) {
-        if (board[r][f]) return true; // something blocks the way
+	occupancy[WHITE] = rank1 | (rank1 << 8); // ranks 1 and 2
+	occupancy[BLACK] = (rank1 << (8*7)) | (rank1 << (8*6)); // ranks 7 and 8
+	occupancy[BOTH] = occupancy[WHITE] | occupancy[BLACK];
+
+	// Initialize the Mailbox
+	for (int i = 0; i < 64; i++) {
+        mailbox[i] = NONE; 
     }
-    return false;
-}
 
-bool board_t::square_attacked(int r, int f, bool by_color) const {
-    for (int sr = 0; sr < 8; ++sr) for (int sf = 0; sf < 8; ++sf) {
-        piece_t* o = board[sr][sf];
-        if (!o || o->color != by_color) continue;
-        int dr = r - sr, df = f - sf;
-        switch (o->symbol) {
-            case 'P': {
-                int dir = o->color ? 1 : -1; // black attacks down, white up
-                if (dr == dir && std::abs(df) == 1) 
-                    return true;
-                break;
-            }
-            case 'N':
-                if ((std::abs(dr) == 2 && std::abs(df) == 1) || (std::abs(dr) == 1 && std::abs(df) == 2))
-                    return true;
-                break;
-            case 'B':
-                if ((dr || df) && std::abs(dr) == std::abs(df) && !check_in_between(sr, sf, r, f))
-                    return true;
-                break;
-            case 'R':
-                if ((dr || df) && (dr == 0 || df == 0) && !check_in_between(sr, sf, r, f))
-                    return true;
-                break;
-            case 'Q':
-                if ((dr || df) && ((dr == 0 || df == 0) || (std::abs(dr) == std::abs(df))) && !check_in_between(sr, sf, r, f))
-                    return true;
-                break;
-            case 'K':
-                if (std::abs(dr) <= 1 && std::abs(df) <= 1 && (dr || df)) 
-                    return true;
-                break;
+    // Iterate over piece types
+    for (PieceType p : AllPieceTypes) {
+        uint64_t bb = pieces[p];
+
+        while (bb) {
+            // Get the index of the Least Significant Bit (LSB) and pop it
+            int sq = pop_lsb(bb); 
+
+            // Determine color by checking the White occupancy board
+            int color = (occupancy[WHITE] & (1ULL << sq)) ? WHITE : BLACK;
+
+            mailbox[sq] = p; 
         }
     }
-    return false;
+
+	history.push_back({0, (1 << 4) - 1, -1, NONE, WHITE}); // z_key, castling_rights, ep_square, captured, turn
 }
 
-bool board_t::in_check(bool color) const {
-    // Find the king
-    int kr = -1, kf = -1;
-    for (int r = 0; r < 8 && kr == -1; ++r){
-        for (int f = 0; f < 8; ++f) {
-            piece_t* p = board[r][f];
-            if (p && p->color == color && p->symbol == 'K') {
-                kr = r; kf = f;
-                break;
-            }
-        }
-    }
-    if (kr == -1 || kf == -1) return false; // no king found, should not happen
-    return square_attacked(kr, kf, !color);
+board_t::board_t(std::string fen)
+{
+	// 0. Reset state
+	for (auto p : AllPieceTypes) pieces[p] = 0;
+	occupancy[WHITE] = occupancy[BLACK] = occupancy[BOTH] = 0;
+	for (int i = 0; i < 64; ++i) mailbox[i] = NONE;
+
+	std::stringstream ss(fen);
+	std::string pos, side, castling, ep;
+	ss >> pos >> side >> castling >> ep;
+
+	// 1. Pieces
+	int rank = 7, file = 0;
+	for (char c : pos) {
+		if (c == '/') { rank--; file = 0; }
+		else if (isdigit(c)) { file += (c - '0'); }
+		else {
+			int sq = rank * 8 + file;
+			
+			Color col = isupper(c) ? WHITE : BLACK;
+			char lower_c = tolower(c);
+			PieceType type;
+
+			switch (lower_c) {
+			case 'p': type = PAWN;   break;
+			case 'n': type = KNIGHT; break;
+			case 'b': type = BISHOP; break;
+			case 'r': type = ROOK;   break;
+			case 'q': type = QUEEN;  break;
+			case 'k': type = KING;   break;
+			default:  type = NONE;   break;
+			}
+
+			if (type != NONE)
+			{
+				pieces[type] |= (1ULL << sq);
+				occupancy[col] |= (1ULL << sq);
+				mailbox[sq] = type;
+				// std::cout << lower_c << " " << sq << '\n';
+			}
+			
+			file++;
+		}
+	}
+	occupancy[BOTH] = occupancy[WHITE] | occupancy[BLACK];
+
+	// 2. Turn
+	state_t current;
+	current.turn = (side == "w") ? WHITE : BLACK;
+
+	// 3. Castling
+	current.castling_rights = 0;
+	if (castling.find('K') != std::string::npos) current.castling_rights |= (1 << 3);
+	if (castling.find('Q') != std::string::npos) current.castling_rights |= (1 << 2);
+	if (castling.find('k') != std::string::npos) current.castling_rights |= (1 << 1);
+	if (castling.find('q') != std::string::npos) current.castling_rights |= (1 << 0);
+
+	// 4. EP
+	auto string_to_sq = [&](std::string code) {
+		int rank = code[1] - '1';
+		int file = code[0] - 'a';
+		return rank * 8 + file;
+	};
+	current.ep_square = (ep == "-") ? -1 : string_to_sq(ep);
+
+	history.push_back(current);
 }
 
-// Works as long as we are guaranteed that the move is a pseudo-legal move from get_available_moves
-bool board_t::check_move(const move_t move){
-
-	piece_t* piece = get_piece(move.from_rank, move.from_file);
-
-	make_move(move);
-
-    bool self_in_check = in_check(piece->color);
-
-	undo_move(move);
-
-    return !self_in_check;
+board_t::board_t(std::vector <move_t> move_hist): board_t()
+{
+	for(auto& move : move_hist)
+		make_move(move, true);
 }
 
-std::vector <move_t> board_t::get_legal_moves(){
-    std::vector <move_t> legal;
-    for (int rank = 0; rank < 8; rank++){
-		for (int file = 0; file < 8; file++){
-			piece_t* p = get_piece(rank,file); 
-			if (p!= nullptr && p->color == turn){ // If the current piece if the color of the current turn
-				// Start with pseudo_legal moves returned by get_available_moves (method of piece_t)
-				std::vector <move_t> pseudo_legal = p->get_available_moves(this, rank, file); 
-				for(auto& move : pseudo_legal){ // Check all pseudo_legal moves in the current configuration of the board (method of board_t)
-					if(check_move(move))
-						legal.push_back(move);
+// Making and unmaking moves
+// Assumes moves are pseudolegal
+bool board_t::make_move(move_t &m, bool apply_flags){
+	if (history.empty())
+		return false;
+
+	const state_t& prev = history.back();
+	Color Us = prev.turn;
+	Color Them = ~Us;
+	int Up = (Us == WHITE) ? 8 : -8;
+
+	int from = m.from();
+	int to = m.to();
+	Bitboard from_bb = 1ULL << from;
+	Bitboard to_bb = 1ULL << to;
+
+	PieceType moving = mailbox[from];
+	if (moving == NONE)
+		return false;
+
+	int flag = m.flag();
+
+	// Apply correct flags to the move object
+	#ifndef DEBUG // If in debug mode, always recompute the flags
+	if (apply_flags) 
+	#endif
+	{
+		if (moving == PAWN) {
+
+			Bitboard PromoRank = (Us == WHITE) ? RankMask[7] : RankMask[0];
+
+			if (flag == QUIET) // Skip if flag is already set (ie for promotion)
+				// Only check for double push and en passant, as promotion is handled when converting from UCI format
+				if (to == from + 2 * Up)
+					flag = DOUBLE_PUSH;
+				else if (prev.ep_square != -1 && to == prev.ep_square) // If moving pawn to ep_square => en passant capture
+					flag = EP_CAPTURE;
+					// Normal pawn capture is caught by the final capture check
+		}
+		else if (moving == KING) {
+			// Check for castling
+			if ((from == E1 && to == G1) || (from == E8 && to == G8)) // King side
+				flag = K_CASTLE;
+			if ((from == E1 && to == C1) || (from == E8 && to == C8)) // Queen side
+				flag = Q_CASTLE;
+		}
+
+		if (occupancy[Them] & to_bb)
+			flag |= CAPTURE;
+
+		if (!apply_flags)
+			// If in debug mode, make sure the flag detected corresponds to the one actually set
+			ASSERT(flag == m.flag(), "apply_flags produced flag " << flag << " instead of " << m.flag());
+		
+		// Modify the old move with new flag
+		m = move_t(from, to, flag);
+	}
+
+	bool is_ep = (flag == EP_CAPTURE);
+	bool is_castle = (flag == K_CASTLE || flag == Q_CASTLE);
+	bool is_promo = (flag & 0b1000) != 0;
+	bool is_double = (flag == DOUBLE_PUSH);
+	bool is_capture = is_ep || (flag & CAPTURE) || (occupancy[Them] & to_bb);
+
+	state_t next = prev;
+	next.turn = Them;
+	next.ep_square = -1;
+	next.captured = NONE;
+
+	if (is_capture && !is_ep) {
+		PieceType captured = mailbox[to];
+		if (captured != NONE) {
+			pieces[captured] &= ~to_bb;
+			occupancy[Them] &= ~to_bb;
+			next.captured = captured;
+		}
+	}
+
+	if (is_ep) {
+		int cap_sq = to - Up;
+		Bitboard cap_bb = 1ULL << cap_sq;
+		pieces[PAWN] &= ~cap_bb;
+		occupancy[Them] &= ~cap_bb;
+		mailbox[cap_sq] = NONE;
+		next.captured = PAWN;
+	}
+
+	pieces[moving] &= ~from_bb;
+	occupancy[Us] &= ~from_bb;
+	mailbox[from] = NONE;
+
+	if (is_promo) {
+		PieceType promo = QUEEN;
+		switch (flag) {
+			case PROMO_N:
+			case PROMO_N_CAP:
+				promo = KNIGHT;
+				break;
+			case PROMO_B:
+			case PROMO_B_CAP:
+				promo = BISHOP;
+				break;
+			case PROMO_R:
+			case PROMO_R_CAP:
+				promo = ROOK;
+				break;
+			default:
+				promo = QUEEN;
+				break;
+		}
+
+		pieces[promo] |= to_bb;
+		occupancy[Us] |= to_bb;
+		mailbox[to] = promo;
+	} else {
+		pieces[moving] |= to_bb;
+		occupancy[Us] |= to_bb;
+		mailbox[to] = moving;
+	}
+
+	if (is_castle && moving == KING) {
+		int rook_from = -1;
+		int rook_to = -1;
+		if (Us == WHITE) {
+			if (flag == K_CASTLE) { rook_from = H1; rook_to = F1; }
+			else { rook_from = A1; rook_to = D1; }
+		} else {
+			if (flag == K_CASTLE) { rook_from = H8; rook_to = F8; }
+			else { rook_from = A8; rook_to = D8; }
+		}
+		Bitboard rook_from_bb = 1ULL << rook_from;
+		Bitboard rook_to_bb = 1ULL << rook_to;
+		pieces[ROOK] &= ~rook_from_bb;
+		pieces[ROOK] |= rook_to_bb;
+		occupancy[Us] &= ~rook_from_bb;
+		occupancy[Us] |= rook_to_bb;
+		mailbox[rook_from] = NONE;
+		mailbox[rook_to] = ROOK;
+	}
+
+	int rights = prev.castling_rights; // bit format is KQkq (uppercase = WHITE)
+	if (moving == KING) {
+		if (Us == WHITE)
+			rights &= ~((1 << 2) | (1 << 3));
+		else
+			rights &= ~((1 << 0) | (1 << 1));
+	}
+	if (moving == ROOK) {
+		if (Us == WHITE) {
+			if (from == H1) rights &= ~(1 << 3);
+			else if (from == A1) rights &= ~(1 << 2);
+		} else {
+			if (from == H8) rights &= ~(1 << 1);
+			else if (from == A8) rights &= ~(1 << 0);
+		}
+	}
+	if (is_capture && !is_ep) {
+		if (to == H1) rights &= ~(1 << 3);
+		else if (to == A1) rights &= ~(1 << 2);
+		else if (to == H8) rights &= ~(1 << 1);
+		else if (to == A8) rights &= ~(1 << 0);
+	}
+
+	next.castling_rights = rights;
+	if (is_double)
+		next.ep_square = from + Up;
+
+	occupancy[BOTH] = occupancy[WHITE] | occupancy[BLACK];
+	history.push_back(next);
+	return true;
+}
+
+void board_t::undo_move(move_t m)
+{
+	if (history.size() < 2)
+		return;
+
+	const state_t last = history.back();
+	history.pop_back();
+
+	Color them = last.turn;
+	Color us = ~them;
+
+	int from = m.from();
+	int to = m.to();
+	Bitboard from_bb = 1ULL << from;
+	Bitboard to_bb = 1ULL << to;
+
+	int flag = m.flag();
+	bool is_ep = (flag == EP_CAPTURE);
+	bool is_castle = (flag == K_CASTLE || flag == Q_CASTLE);
+	bool is_promo = (flag & 0b1000) != 0;
+
+	PieceType moving = PAWN;
+
+	if (is_promo) {
+		PieceType promo = QUEEN;
+		switch (flag) {
+			case PROMO_N:
+			case PROMO_N_CAP:
+				promo = KNIGHT;
+				break;
+			case PROMO_B:
+			case PROMO_B_CAP:
+				promo = BISHOP;
+				break;
+			case PROMO_R:
+			case PROMO_R_CAP:
+				promo = ROOK;
+				break;
+			default:
+				promo = QUEEN;
+				break;
+		}
+
+		pieces[promo] &= ~to_bb;
+		occupancy[us] &= ~to_bb;
+		mailbox[to] = NONE;
+	} else {
+		moving = mailbox[to];
+		pieces[moving] &= ~to_bb;
+		occupancy[us] &= ~to_bb;
+		mailbox[to] = NONE;
+	}
+
+	pieces[moving] |= from_bb;
+	occupancy[us] |= from_bb;
+	mailbox[from] = moving;
+
+	if (is_castle && moving == KING) {
+		int rook_from = -1;
+		int rook_to = -1;
+		if (us == WHITE) {
+			if (flag == K_CASTLE) { rook_from = H1; rook_to = F1; }
+			else { rook_from = A1; rook_to = D1; }
+		} else {
+			if (flag == K_CASTLE) { rook_from = H8; rook_to = F8; }
+			else { rook_from = A8; rook_to = D8; }
+		}
+		Bitboard rook_from_bb = 1ULL << rook_from;
+		Bitboard rook_to_bb = 1ULL << rook_to;
+		pieces[ROOK] &= ~rook_to_bb;
+		pieces[ROOK] |= rook_from_bb;
+		occupancy[us] &= ~rook_to_bb;
+		occupancy[us] |= rook_from_bb;
+		mailbox[rook_to] = NONE;
+		mailbox[rook_from] = ROOK;
+	}
+
+	if (last.captured != NONE) {
+		if (is_ep) {
+			int cap_sq = to + (us == WHITE ? -8 : 8);
+			Bitboard cap_bb = 1ULL << cap_sq;
+			pieces[PAWN] |= cap_bb;
+			occupancy[them] |= cap_bb;
+			mailbox[cap_sq] = PAWN;
+		} else {
+			pieces[last.captured] |= to_bb;
+			occupancy[them] |= to_bb;
+			mailbox[to] = last.captured;
+		}
+	}
+
+	occupancy[BOTH] = occupancy[WHITE] | occupancy[BLACK];
+}
+
+// Other utilities
+std::string board_t::to_fen() const
+{
+	std::string fen = "";
+	const state_t& current = history.back();
+
+	for (int r = 7; r >= 0; --r) {
+		int empty = 0;
+		for (int f = 0; f < 8; ++f) {
+			int sq = r * 8 + f;
+			int pc = mailbox[sq];
+			if (pc == 0) {
+				empty++;
+			}
+			else {
+				if (empty > 0) fen += std::to_string(empty);
+				empty = 0;
+
+				// Use offest to transform lowercase to uppercase if white piece
+				// Offset is ('A' - 'a') for white piece, 0 for black.
+				char offset = ('A' - 'a') * ((occupancy[WHITE] >> sq) & 1ULL);
+				switch (pc) {
+					case PAWN:
+						fen += 'p' + offset; break;
+					case KNIGHT:
+						fen += 'n' + offset; break;
+					case BISHOP:
+						fen += 'b' + offset; break;
+					case ROOK:
+						fen += 'r' + offset; break;
+					case QUEEN:
+						fen += 'q' + offset; break;
+					case KING:
+						fen += 'k' + offset; break;
 				}
 			}
 		}
+		if (empty > 0) fen += std::to_string(empty);
+		if (r > 0) fen += "/";
 	}
-    return legal;
+
+	// Turn
+	fen += (current.turn == WHITE) ? " w " : " b ";
+
+	// Castling
+	if (current.castling_rights == 0) fen += "-";
+	else {
+		if (current.castling_rights & (1 << 3)) fen += "K";
+		if (current.castling_rights & (1 << 2)) fen += "Q";
+		if (current.castling_rights & (1 << 1)) fen += "k";
+		if (current.castling_rights & (1 << 0)) fen += "q";
+	}
+
+	// EP
+	auto sq_to_string = [&](int sq) {
+		return std::string("") + (char)('a' + sq % 8) + (char)('1' + sq / 8); 
+	};
+	fen += " " + (current.ep_square == -1 ? "-" : sq_to_string(current.ep_square));
+
+	return fen;
 }
 
-uint64_t board_t::compute_key() const{
-    init_zobrist();
-    uint64_t key = 0;
-    for (int r = 0; r < 8; r++){
-        for (int f = 0; f < 8; f++){
-            piece_t* piece = board[r][f]; 
-            if (piece == nullptr)
-                continue; 
-            key ^= Z_PSQ[index(piece)][r*8 + f]; 
-        }
-    }
+// Check if a square is attacked by any piece of the given color using bitboard rays/lookup tables
+bool board_t::square_attacked(int sq, Color by_color) const
+{
+	Bitboard target = 1ULL << sq;
+	Bitboard occ_all = occupancy[BOTH];
+	Bitboard by_occ = occupancy[by_color];
 
-    if (turn) // White starts
-        key ^= Z_TURN;
-    
-    params_t params = param_stack.back();
-    int castle_mask = 0; 
-    // Set one bit for each type of castle
-    if (params.WK_castle) 
-        castle_mask |= 1; 
-    if (params.WQ_castle)
-        castle_mask |= 2; 
-    
-    if (params.BK_castle)
-        castle_mask |= 4;
-    if (params.BQ_castle)
-        castle_mask |= 8;
-    key ^= Z_CASTLE[castle_mask];
+	// Pawn attacks (flip directions per color)
+	Bitboard pawns = pieces[PAWN] & by_occ;
+	if (by_color == WHITE) {
+		Bitboard attacks = shift<7>(pawns & ~FileMask[0]) | shift<9>(pawns & ~FileMask[7]);
+		if (attacks & target) return true;
+	} else if (by_color == BLACK) {
+		Bitboard attacks = shift<-7>(pawns & ~FileMask[7]) | shift<-9>(pawns & ~FileMask[0]);
+		if (attacks & target) return true;
+	}
 
-    //En passant
-    int ep;
-    if (params.ep_file == -1) // no en passant
-        ep = 8;
-    else
-        ep = params.ep_file; // possible files 0 - 7
-    key ^= Z_EPFILE[ep];
-    return key;
-}
+	// Knight attacks (symmetric)
+	Bitboard knights = pieces[KNIGHT] & by_occ;
+	if (KnightAttacks[sq] & knights)
+		return true;
 
-// Assuming verified legal move
-void board_t::make_move(const move_t move){
-    int tr = move.to_rank; 
-    int tf = move.to_file;
-    int fr = move.from_rank;
-    int ff = move.from_file;
+	// King attacks (symmetric)
+	Bitboard kings = pieces[KING] & by_occ;
+	if (KingAttacks[sq] & kings)
+		return true;
 
-    uint64_t old_key = key;
-
-    params_t prev_params = param_stack.back();
-	// initialise new params with previous values
-	params_t params = prev_params;
-
-	// reset necessary params
-	params.ep_rank = -1;
-	params.ep_file = -1;
-	params.ep_played = false;
-
-	// move piece and capture
-	piece_t* piece = board[fr][ff];
-	params.captured = board[tr][tf];
-
-    // Make the move
-    board[tr][tf] = board[fr][ff]; 
-    board[fr][ff] = nullptr;
-
-	// Record last moved pawn eligible for en passant
-	if (piece->symbol == 'P' && std::abs(tr - fr) == 2) {
-		params.ep_rank = fr + (piece->color ? 1 : -1);  // square jumped over
-		params.ep_file = ff;
-	}	
-
-	// Handle en passant capture, as we cannot know if the move is en passent or not without the current board configuration
-	if (piece->symbol == 'P' && params.captured == nullptr &&
-	std::abs(tf - ff) == 1 && (tr - fr == (piece->color ? 1 : -1))) {
-		int cap_r = fr;      // same rank as pawn started
-		int cap_f = tf;      // file it moved into
-		piece_t* ep_pawn = board[cap_r][cap_f];
-		if (ep_pawn && ep_pawn->symbol == 'P' && ep_pawn->color != piece->color) {
-			params.ep_played = true;
-			params.captured = ep_pawn;
-			board[cap_r][cap_f] = nullptr; // remove the captured pawn
+	// Sliding attacks
+	auto ray_hit = [&](int df, int dr, Bitboard sliders) -> bool {
+		int f = (sq % 8) + df;
+		int r = (sq / 8) + dr;
+		while (f >= 0 && f < 8 && r >= 0 && r < 8) {
+			int idx = r * 8 + f;
+			Bitboard bb = 1ULL << idx;
+			if (occ_all & bb)
+				return (sliders & bb) != 0;
+			f += df;
+			r += dr;
 		}
-	}
+		return false;
+	};
 
-    // Promotion 
-    if (move.promotion){
-        if (turn == 0){ // White
-            switch(move.promotion){
-            case 'q': board[tr][tf] = pieces[QUEEN_W]; break;
-            case 'r': board[tr][tf] = pieces[ROOK_W]; break;
-            case 'k': board[tr][tf] = pieces[KNIGHT_W]; break;
-            case 'b': board[tr][tf] = pieces[BISHOP_W]; break;
-            }
-        }
-        else{ // Black
-            switch(move.promotion){
-            case 'q': board[tr][tf] = pieces[QUEEN_B]; break;
-            case 'r': board[tr][tf] = pieces[ROOK_B]; break;
-            case 'k': board[tr][tf] = pieces[KNIGHT_B]; break;
-            case 'b': board[tr][tf] = pieces[BISHOP_B]; break;
-            }
-        }
-    }
-    else if (piece->symbol == 'K' && std::abs(tf - ff) == 2) { // Move the rook if castling
-        int rook_from_f = -1, rook_to_f = -1;
+	// Bishop and queen diagonals
+	Bitboard bishops = (pieces[BISHOP] | pieces[QUEEN]) & by_occ;
+	if (ray_hit(1, 1, bishops) || ray_hit(-1, 1, bishops) ||
+		ray_hit(1, -1, bishops) || ray_hit(-1, -1, bishops))
+		return true;
 
-		if (!piece->color && fr == 7) {           // white
-            if (tf > ff) { rook_from_f = 7; rook_to_f = 5; } // king-side
-            else         { rook_from_f = 0; rook_to_f = 3; } // queen-side
-        } else if (piece->color && fr == 0) {     // black
-            if (tf > ff) { rook_from_f = 7; rook_to_f = 5; }
-            else         { rook_from_f = 0; rook_to_f = 3; }
-        }
+	// Rook and queen orthogonals
+	Bitboard rooks = (pieces[ROOK] | pieces[QUEEN]) & by_occ;
+	if (ray_hit(0, 1, rooks) || ray_hit(0, -1, rooks) ||
+		ray_hit(1, 0, rooks) || ray_hit(-1, 0, rooks))
+		return true;
 
-        board[fr][rook_to_f] = board[fr][rook_from_f];
-        board[fr][rook_from_f] = nullptr;
-    }
-	
-	// if king has moved we can no longer castle
-    if (piece->symbol == 'K')
-        if (!piece->color)
-            params.WK_castle = params.WQ_castle = false;
-        else
-            params.BK_castle = params.BQ_castle = false;
-	
-	// if rook has moved we can no longer castle
-    if (piece->symbol == 'R')
-        if (!piece->color)
-            if (tf > ff) params.WK_castle = false;
-            else params.WQ_castle = false;
-        else 
-            if (tf > ff) params.BK_castle = false;
-            else params.BQ_castle = false;
-
-	// update the turn
-	turn = 1 - turn;
-
-	// update params
-	param_stack.push_back(params);
-
-    auto castle_mask_from = [](const params_t& p){
-        int mask = 0;
-        if (p.WK_castle) mask |= 1;
-        if (p.WQ_castle) mask |= 2;
-        if (p.BK_castle) mask |= 4;
-        if (p.BQ_castle) mask |= 8;
-        return mask;
-    };
-
-    uint64_t new_key = old_key;
-    // toggle turn
-    new_key ^= Z_TURN;
-
-    // castle rights
-    int old_castle_mask = castle_mask_from(prev_params);
-    int new_castle_mask = castle_mask_from(params);
-    if (old_castle_mask != new_castle_mask){
-        new_key ^= Z_CASTLE[old_castle_mask];
-        new_key ^= Z_CASTLE[new_castle_mask];
-    }
-
-    // en passant
-    int old_ep = prev_params.ep_file == -1 ? 8 : prev_params.ep_file;
-    int new_ep = params.ep_file == -1 ? 8 : params.ep_file;
-    if (old_ep != new_ep){
-        new_key ^= Z_EPFILE[old_ep];
-        new_key ^= Z_EPFILE[new_ep];
-    }
-
-    int from_sq = fr * 8 + ff;
-    int to_sq = tr * 8 + tf;
-
-    // remove moving piece from origin
-    new_key ^= Z_PSQ[index(piece)][from_sq];
-
-    // remove captured piece
-    if (params.captured){
-        int cap_r = params.ep_played ? fr : tr;
-        int cap_f = tf;
-        new_key ^= Z_PSQ[index(params.captured)][cap_r * 8 + cap_f];
-    }
-
-    // add moving piece at destination (handle promotion)
-    if (move.promotion){
-        char promo_sym = std::toupper(move.promotion);
-        if (promo_sym == 'K') promo_sym = 'N'; // 'k' is used for knight promotion
-        int promo_idx = (piece->color ? 6 : 0) + base_index(promo_sym);
-        new_key ^= Z_PSQ[promo_idx][to_sq];
-    } else {
-        new_key ^= Z_PSQ[index(piece)][to_sq];
-    }
-
-    // handle rook movement during castling
-    if (piece->symbol == 'K' && std::abs(tf - ff) == 2){
-        int rook_from_f = (tf > ff) ? 7 : 0;
-        int rook_to_f   = (tf > ff) ? 5 : 3;
-        piece_t* rook_piece = piece->color ? pieces[ROOK_B] : pieces[ROOK_W];
-        new_key ^= Z_PSQ[index(rook_piece)][fr * 8 + rook_from_f];
-        new_key ^= Z_PSQ[index(rook_piece)][fr * 8 + rook_to_f];
-    }
-
-    key = new_key;
-    key_history.push_back(key);
-
-    // Track repetition counts efficiently
-    irreversible_stack.push_back(last_irreversible_index);
-    bool castle_changed = (prev_params.WK_castle != params.WK_castle) ||
-                          (prev_params.WQ_castle != params.WQ_castle) ||
-                          (prev_params.BK_castle != params.BK_castle) ||
-                          (prev_params.BQ_castle != params.BQ_castle);
-    bool irreversible = params.captured != nullptr ||
-                        piece->symbol == 'P' ||
-                        move.promotion ||
-                        castle_changed;
-
-    if (irreversible){
-        last_irreversible_index = static_cast<int>(key_history.size()) - 1;
-        repetition_count.clear();
-        repetition_count[key] = 1;
-    } else {
-        repetition_count[key] += 1;
-    }
+	return false;
 }
 
-void board_t::undo_move(const move_t move){
-    int tr = move.to_rank; 
-    int tf = move.to_file;
-    int fr = move.from_rank;
-    int ff = move.from_file;
+// Is the given color currently in check?
+bool board_t::in_check(Color color) const
+{
+	Bitboard king_bb = pieces[KING] & occupancy[color];
+	if (!king_bb)
+		return false; // king missing; treat as not in check
 
-	// pop parameters from the last board state
-	params_t params = param_stack.back();
-	param_stack.pop_back();
+	int king_sq = std::countr_zero(king_bb);
+	return square_attacked(king_sq, ~color);
+}
 
-    piece_t* piece = get_piece(tr, tf);
+void board_t::add_move(std::vector<move_t> &list, move_t move)
+{
+	Color us = history.empty() ? WHITE : history.back().turn;
 
-	// Undo the move
-    board[fr][ff] = piece;
-    board[tr][tf] = nullptr;
+	if (!make_move(move))
+		return;
 
-	// put back captured pieces
-	if(!params.ep_played)
-		board[tr][tf] = params.captured;
-	else
-		board[fr][tf] = params.captured;
+	if (!in_check(us))
+		list.push_back(move);
 
-	// if undoing castling, move the rook back
-	if(piece->symbol == 'K' && std::abs(tf - ff) == 2)
-	{
-		int rook_from_f = -1, rook_to_f = -1;
+	undo_move(move);
+}
 
-        if (!piece->color && fr == 7) {           // white
-            if (tf > ff) { rook_from_f = 7; rook_to_f = 5; } // king-side
-            else         { rook_from_f = 0; rook_to_f = 3; } // queen-side
-        } else if (piece->color && fr == 0) {     // black
-            if (tf > ff) { rook_from_f = 7; rook_to_f = 5; }
-            else         { rook_from_f = 0; rook_to_f = 3; }
-        }
+void board_t::get_legal_moves(std::vector<move_t> &list)
+{
+	list.clear();
 
-		// move back the rook
-        board[fr][rook_from_f] = board[fr][rook_to_f];
-        board[fr][rook_to_f] = nullptr;
+	Color color = history.empty() ? WHITE : history.back().turn;
+
+	std::vector<move_t> pseudo;
+	pseudo.reserve(128);
+
+	if (color == WHITE) {
+		generate_pawn_moves<WHITE>(pseudo);
+		generate_knight_moves<WHITE>(pseudo);
+		generate_bishop_moves<WHITE>(pseudo);
+		generate_rook_moves<WHITE>(pseudo);
+		generate_queen_moves<WHITE>(pseudo);
+		generate_king_moves<WHITE>(pseudo);
+	} else {
+		generate_pawn_moves<BLACK>(pseudo);
+		generate_knight_moves<BLACK>(pseudo);
+		generate_bishop_moves<BLACK>(pseudo);
+		generate_rook_moves<BLACK>(pseudo);
+		generate_queen_moves<BLACK>(pseudo);
+		generate_king_moves<BLACK>(pseudo);
 	}
 
-    if (move.promotion){
-        // revert promoted piece back to pawn
-        board[fr][ff] = piece->color ? pieces[PAWN_B] : pieces[PAWN_W];
-    }
-
-	// undo the turn
-	turn = 1 - turn;
-
-    // Update repetition tracking
-    int prev_last_irreversible = irreversible_stack.back();
-    irreversible_stack.pop_back();
-    bool was_irreversible = prev_last_irreversible != last_irreversible_index;
-    uint64_t current_key = key_history.empty() ? 0 : key_history.back();
-
-    if (!was_irreversible){
-        auto it = repetition_count.find(current_key);
-        if (it != repetition_count.end()){
-            if (--(it->second) == 0)
-                repetition_count.erase(it);
-        }
-    }
-
-    if (!key_history.empty())
-        key_history.pop_back();
-
-    if (!key_history.empty())
-        key = key_history.back(); 
-    else
-        key = compute_key();
-
-    last_irreversible_index = prev_last_irreversible;
-    if (was_irreversible){
-        repetition_count.clear();
-        for (int i = last_irreversible_index; i < static_cast<int>(key_history.size()); ++i)
-            repetition_count[key_history[i]] += 1;
-    }
+	for (const auto& move : pseudo)
+		add_move(list, move);
 }

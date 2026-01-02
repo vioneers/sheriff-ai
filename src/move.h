@@ -1,35 +1,23 @@
-#ifndef __MOVE__
-#define __MOVE__
+#pragma once
 
 #include <string>
+#include "types.h"
 
 struct move_t {
-	int from_rank;
-	int from_file;
-	int to_rank;
-	int to_file;
-	char promotion; // promotion code if promotion, 0 otherwise
-	bool is_ep, is_castling;
-	char captured;
 
-    move_t()
-        : from_rank{0}, from_file{0}, to_rank{0}, to_file{0},
-          promotion{0}, is_ep{false}, is_castling{false}, captured{0} {}
-	
-	move_t(int from_rank, int from_file, int to_rank, int to_file, char promotion = 0)
-		: from_rank{from_rank}, from_file{from_file}, to_rank{to_rank}, to_file{to_file}, promotion{promotion} {};
-	
+	uint16_t data;
+	//Bits 0-5: Source Square
+	//Bits 6-11: Target Square
+	//Bits 12-15: Flags (see namespace MoveFlag in types.h)
+
+	move_t() : data{0} {}
+	move_t(const uint16_t data): data{data} {}
 	move_t(const std::string& code);
+	move_t(int from, int to, int flag) { data = (flag << 12) | (to << 6) | from; }
+
+	constexpr int from() const { return data & 0x3F; }
+    constexpr int to() const { return (data >> 6) & 0x3F; }
+	constexpr int flag() const {return (data >> 12) & 0x3F; }
 	
-	std::string to_code(); // return the move in long algebraic UCI format
-
-    bool operator==(const move_t& other) const {
-        return from_rank == other.from_rank &&
-               from_file == other.from_file &&
-               to_rank == other.to_rank &&
-               to_file == other.to_file &&
-               promotion == other.promotion;
-    }
+	std::string to_code() const; // return the move in long algebraic UCI format
 };
-
-#endif

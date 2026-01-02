@@ -1,7 +1,9 @@
 #include <vector>
 #include <limits>
 #include <algorithm>
-#include <cctype>
+#ifdef SHERIFF_DEBUG_PV
+#include <iostream>
+#endif
 
 #include "engine.h"
 #include "evaluationbar.h"
@@ -9,259 +11,304 @@
 constexpr int INF = std::numeric_limits<int>::max();
 constexpr int MATE_SCORE = 1000000;
 
-static int mv_piece_value(char s){
+static int mv_piece_value(PieceType s){
     switch(s){
-        case 'P': return 100;
-        case 'N': return 300;
-        case 'B': return 320;
-        case 'R': return 500;
-        case 'Q': return 900;
-        case 'K': return 20000;
+        case PAWN: return 100;
+        case KNIGHT: return 300;
+        case BISHOP: return 320;
+        case ROOK: return 500;
+        case QUEEN: return 900;
+        case KING: return 20000;
         default: return 0;
     }
 }
 
-engine_t::engine_t(std::vector<move_t> move_hist)
-    : best_move("e2e4"), // placeholder value 
-      best_move_valid(false),
-	  pawn_w(false),
-      rook_w(false),
-      knight_w(false),
-      bishop_w(false),
-      queen_w(false),
-      king_w(false),
-      pawn_b(true),
-      rook_b(true),
-      knight_b(true),
-      bishop_b(true),
-      queen_b(true),
-      king_b(true)
-{
-    // Initialize killer table to placeholders
-    for (int d = 0; d < MAX_DEPTH; ++d){
-        killer_moves[d][0] = move_t();
-        killer_moves[d][1] = move_t();
+#ifdef SHERIFF_DEBUG_PV
+static void update_pv(engine_t& eng, int ply, const move_t& move){
+    eng.pv_moves[ply][0] = move;
+    int child_len = (ply + 1 < engine_t::MAX_PLY) ? eng.pv_length[ply + 1] : 0;
+    if (child_len > engine_t::MAX_PLY - 1)
+        child_len = engine_t::MAX_PLY - 1;
+    for (int i = 0; i < child_len; ++i)
+        eng.pv_moves[ply][i + 1] = eng.pv_moves[ply + 1][i];
+    eng.pv_length[ply] = child_len + 1;
+}
+
+static bool is_better_score(int score, int best, bool maximizing){
+    return maximizing ? (score > best) : (score < best);
+}
+
+static void update_root_lines(engine_t& eng, const move_t& move, int score, int ply, bool maximizing){
+    engine_t::root_line_t line;
+    line.move = move;
+    line.score = score;
+    int child_len = (ply + 1 < engine_t::MAX_PLY) ? eng.pv_length[ply + 1] : 0;
+    if (child_len > engine_t::MAX_PLY - 1)
+        child_len = engine_t::MAX_PLY - 1;
+    line.pv_len = child_len + 1;
+    line.pv[0] = move;
+    for (int i = 0; i < child_len; ++i)
+        line.pv[i + 1] = eng.pv_moves[ply + 1][i];
+    line.valid = true;
+
+    for (int i = 0; i < 3; ++i){
+        if (!eng.root_lines[i].valid){
+            eng.root_lines[i] = line;
+            return;
+        }
+        if (is_better_score(score, eng.root_lines[i].score, maximizing)){
+            for (int j = 2; j > i; --j)
+                eng.root_lines[j] = eng.root_lines[j - 1];
+            eng.root_lines[i] = line;
+            return;
+        }
     }
-
-    pieces[PAWN_W]   = &pawn_w;
-    pieces[ROOK_W]   = &rook_w;
-    pieces[KNIGHT_W] = &knight_w;
-    pieces[BISHOP_W] = &bishop_w;
-    pieces[QUEEN_W]  = &queen_w;
-    pieces[KING_W]   = &king_w;
-
-    pieces[PAWN_B]   = &pawn_b;
-    pieces[ROOK_B]   = &rook_b;
-    pieces[KNIGHT_B] = &knight_b;
-    pieces[BISHOP_B] = &bishop_b;
-    pieces[QUEEN_B]  = &queen_b;
-    pieces[KING_B]   = &king_b;
-
-    board_state = board_t(move_hist, pieces);
 }
-
-int engine_t::evaluate(){
-	return evaluate_board(&board_state);
-}
+#endif
 
 int engine_t::move_order_score(const move_t& m, int ply){
-    board_t& b = board_state;
-
-    piece_t* mover = b.get_piece(m.from_rank, m.from_file);
-    piece_t* target = b.get_piece(m.to_rank, m.to_file);
+    PieceType mover = board.mailbox[m.from()];
+    PieceType target = board.mailbox[m.to()];
     int score = 0;
 
     // Captures (including en passant) using MVV-LVA style
-    bool is_capture = target != nullptr;
-    if (!is_capture && mover && mover->symbol == 'P' && m.to_file != m.from_file){
-        params_t params = b.param_stack.back();
-        if (params.ep_rank == m.to_rank && params.ep_file == m.to_file){
-            is_capture = true;
-            target = b.get_piece(m.from_rank, m.to_file); // captured pawn position
-        }
-    }
-
-    if (is_capture && mover){
-        int victim = target ? mv_piece_value(target->symbol) : mv_piece_value('P');
-        int attacker = mv_piece_value(mover->symbol);
+    bool is_capture = (m.flag() & CAPTURE) != 0;
+    if (m.flag() == EP_CAPTURE)
+        target = PAWN;
+    
+    if (is_capture){
+        int victim = mv_piece_value(target);
+        int attacker = mv_piece_value(mover);
         score += 100000 + victim * 10 - attacker;
     }
 
     // Promotions to the front
-    bool is_promotion = m.promotion != 0;
+    bool is_promotion = (m.flag() & PROMO_N) != 0;
     if (is_promotion){
-        char promo_sym = std::toupper(m.promotion) == 'K' ? 'N' : std::toupper(m.promotion);
-        score += 90000 + mv_piece_value(promo_sym);
+        PieceType promo_piece;
+        switch (m.flag()) {
+            case PROMO_N:
+            case PROMO_N_CAP:
+                promo_piece = KNIGHT; break;
+            case PROMO_B:
+            case PROMO_B_CAP:
+                promo_piece = BISHOP; break;
+            case PROMO_R:
+            case PROMO_R_CAP:
+                promo_piece = ROOK; break;
+            case PROMO_Q:
+            case PROMO_Q_CAP:
+                promo_piece = QUEEN; break;
+        }
+        score += 90000 + mv_piece_value(promo_piece);
     }
 
-    // Killer and history bonuses for quiet moves
     if (!is_capture && !is_promotion){
-        if (killer_moves[ply][0] == m)
-            score += 80000;
-        else if (killer_moves[ply][1] == m)
-            score += 75000;
-
-        int from_sq = m.from_rank * 8 + m.from_file;
-        int to_sq = m.to_rank * 8 + m.to_file;
-        score += history_table[from_sq][to_sq];
+        if (ply >= 0 && ply < MAX_PLY){
+            if (killer_moves[ply][0] == m.data)
+                score += 80000;
+            else if (killer_moves[ply][1] == m.data)
+                score += 75000;
+        }
+        score += history_table[m.from()][m.to()];
     }
 
     return score;
 }
 
-static bool is_capture_move(const move_t& m, board_t& b){
-    piece_t* mover = b.get_piece(m.from_rank, m.from_file);
-    piece_t* target = b.get_piece(m.to_rank, m.to_file);
-    bool is_capture = target != nullptr;
-    if (!is_capture && mover && mover->symbol == 'P' && m.to_file != m.from_file){
-        params_t params = b.param_stack.back();
-        if (params.ep_rank == m.to_rank && params.ep_file == m.to_file){
-            is_capture = true;
-        }
-    }
-    return is_capture;
+engine_t::engine_t(std::vector<move_t> move_hist)
+    : board(move_hist), 
+	  best_move("e2e4"), // placeholder value 
+      best_move_valid(false) {};
+
+// temporary
+int engine_t::evaluate(){
+	return evaluate_board(&board);
 }
 
-int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root){
+int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, int ply){
     using clock = std::chrono::steady_clock;
+
+    if (is_root && ply == 0){
+        std::fill(&killer_moves[0][0], &killer_moves[0][0] + (MAX_PLY * 2), 0);
+        std::fill(&history_table[0][0], &history_table[0][0] + (64 * 64), 0);
+#ifdef SHERIFF_DEBUG_PV
+        std::fill(&pv_length[0], &pv_length[0] + MAX_PLY, 0);
+        for (int i = 0; i < 3; ++i)
+            root_lines[i].valid = false;
+#endif
+    }
 
     if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
         time_up = true;
 
-    if (time_up || depth_left == 0) 
+    if (time_up || depth_left == 0) {
+#ifdef SHERIFF_DEBUG_PV
+        pv_length[ply] = 0;
+#endif
         return evaluate();
-
-    if (is_root){
-        search_depth = depth_left;
-        for (int d = 0; d < MAX_DEPTH; ++d){
-            killer_moves[d][0] = move_t();
-            killer_moves[d][1] = move_t();
-        }
-        for (int i = 0; i < 64; ++i)
-            for (int j = 0; j < 64; ++j)
-                history_table[i][j] = 0;
     }
 
-    if (board_state.is_threefold())
-        return 0;
     int best = -INF;
 
-    std::vector <move_t> legal = board_state.get_legal_moves();
-    int ply = search_depth - depth_left;
-    std::sort(legal.begin(), legal.end(), [&](const move_t& a, const move_t& b){
+    std::vector <move_t> legal;
+    board.get_legal_moves(legal); 
+
+    std::stable_sort(legal.begin(), legal.end(), [&](const move_t& a, const move_t& b){
         return move_order_score(a, ply) > move_order_score(b, ply);
     });
     
     if (legal.empty()){
         if (is_root)
             best_move_valid = false;
-        return board_state.in_check(board_state.turn) ? -MATE_SCORE + depth_left : 0; // checkmate or stalemate
+#ifdef SHERIFF_DEBUG_PV
+        pv_length[ply] = 0;
+#endif
+        return board.in_check(board.history.back().turn) ? -MATE_SCORE + depth_left : 0; // checkmate or stalemate
     }
+
     if (is_root){
         best_move = legal.front();
         best_move_valid = true;
     }
-    for (auto& move: legal){
-        bool is_capture = is_capture_move(move, board_state);
-        bool is_promotion = move.promotion != 0;
 
-        board_state.make_move(move);
-        int score = alphaBetaMin (alpha, beta, depth_left - 1, false);
-        board_state.undo_move(move);
+    for (auto& move: legal){
+        board.make_move(move);
+        int score = alphaBetaMin(alpha, beta, depth_left - 1, false, ply + 1);
+        board.undo_move(move);
+
+        bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
+
+#ifdef SHERIFF_DEBUG_PV
+        if (is_root)
+            update_root_lines(*this, move, score, ply, true);
+#endif
         
-        if (score >= best){
+        if (score > best){
             if (is_root){
                 best_move = move;
                 best_move_valid = true;
             }
             best = score;
+#ifdef SHERIFF_DEBUG_PV
+            update_pv(*this, ply, move);
+#endif
             if (score > alpha)
                 alpha = score; 
         }
         if (score >= beta){
-            if (!is_capture && !is_promotion){
-                if (!(killer_moves[ply][0] == move)){
-                    killer_moves[ply][1] = killer_moves[ply][0];
-                    killer_moves[ply][0] = move;
+            if (is_quiet){
+                int from = move.from();
+                int to = move.to();
+                history_table[from][to] += depth_left * depth_left;
+                if (ply >= 0 && ply < MAX_PLY){
+                    if (killer_moves[ply][0] != move.data){
+                        killer_moves[ply][1] = killer_moves[ply][0];
+                        killer_moves[ply][0] = move.data;
+                    }
                 }
-                int from_sq = move.from_rank * 8 + move.from_file;
-                int to_sq = move.to_rank * 8 + move.to_file;
-                history_table[from_sq][to_sq] += depth_left * depth_left;
             }
             return score;
         }
     }
     return best;
 }
-int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root){
+int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, int ply){
     using clock = std::chrono::steady_clock;
+
+    if (is_root && ply == 0){
+        std::fill(&killer_moves[0][0], &killer_moves[0][0] + (MAX_PLY * 2), 0);
+        std::fill(&history_table[0][0], &history_table[0][0] + (64 * 64), 0);
+#ifdef SHERIFF_DEBUG_PV
+        std::fill(&pv_length[0], &pv_length[0] + MAX_PLY, 0);
+        for (int i = 0; i < 3; ++i)
+            root_lines[i].valid = false;
+#endif
+    }
 
     if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
         time_up = true;
         
-    if (time_up || depth_left == 0) 
+    if (time_up || depth_left == 0) {
+#ifdef SHERIFF_DEBUG_PV
+        pv_length[ply] = 0;
+#endif
         return evaluate();
-
-    if (is_root){
-        search_depth = depth_left;
-        for (int d = 0; d < MAX_DEPTH; ++d){
-            killer_moves[d][0] = move_t();
-            killer_moves[d][1] = move_t();
-        }
-        for (int i = 0; i < 64; ++i)
-            for (int j = 0; j < 64; ++j)
-                history_table[i][j] = 0;
     }
 
-    if (board_state.is_threefold())
-        return 0;
-        
     int best = INF;
 
-    std::vector <move_t> legal = board_state.get_legal_moves();
-    int ply = search_depth - depth_left;
-    std::sort(legal.begin(), legal.end(), [&](const move_t& a, const move_t& b){
+    std::vector <move_t> legal;
+    board.get_legal_moves(legal);
+
+    std::stable_sort(legal.begin(), legal.end(), [&](const move_t& a, const move_t& b){
         return move_order_score(a, ply) > move_order_score(b, ply);
     });
 
     if (legal.empty()){
         if (is_root)
             best_move_valid = false;
-        return board_state.in_check(board_state.turn) ? MATE_SCORE - depth_left : 0; // checkmate or stalemate
+#ifdef SHERIFF_DEBUG_PV
+        pv_length[ply] = 0;
+#endif
+        return board.in_check(board.history.back().turn) ? MATE_SCORE - depth_left : 0; // checkmate or stalemate
     }
     if (is_root){
         best_move = legal.front();
         best_move_valid = true;
     }
     for (auto& move: legal){
-        bool is_capture = is_capture_move(move, board_state);
-        bool is_promotion = move.promotion != 0;
+        board.make_move(move);
+        int score = alphaBetaMax (alpha, beta, depth_left - 1, false, ply + 1);
+        board.undo_move(move);
 
-        board_state.make_move(move);
-        int score = alphaBetaMax (alpha, beta, depth_left - 1, false);
-        board_state.undo_move(move);
+        bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
+
+#ifdef SHERIFF_DEBUG_PV
+        if (is_root)
+            update_root_lines(*this, move, score, ply, false);
+#endif
         
-        if (score <= best){
+        if (score < best){
             if (is_root){
                 best_move = move;
                 best_move_valid = true;
             }
             best = score;
+#ifdef SHERIFF_DEBUG_PV
+            update_pv(*this, ply, move);
+#endif
             if (score < beta)
                 beta = score; 
         }
         if (score <= alpha){
-            if (!is_capture && !is_promotion){
-                if (!(killer_moves[ply][0] == move)){
-                    killer_moves[ply][1] = killer_moves[ply][0];
-                    killer_moves[ply][0] = move;
+            if (is_quiet){
+                int from = move.from();
+                int to = move.to();
+                history_table[from][to] += depth_left * depth_left;
+                if (ply >= 0 && ply < MAX_PLY){
+                    if (killer_moves[ply][0] != move.data){
+                        killer_moves[ply][1] = killer_moves[ply][0];
+                        killer_moves[ply][0] = move.data;
+                    }
                 }
-                int from_sq = move.from_rank * 8 + move.from_file;
-                int to_sq = move.to_rank * 8 + move.to_file;
-                history_table[from_sq][to_sq] += depth_left * depth_left;
             }
             return score;
         }
     }
     return best;
 }
+
+#ifdef SHERIFF_DEBUG_PV
+void engine_t::log_root_lines() const {
+    for (int i = 0; i < 3; ++i){
+        const auto& line = root_lines[i];
+        if (!line.valid)
+            continue;
+        std::cout << "info string root" << (i + 1) << " score " << line.score << " pv";
+        for (int j = 0; j < line.pv_len; ++j)
+            std::cout << " " << line.pv[j].to_code();
+        std::cout << '\n';
+    }
+}
+#endif
