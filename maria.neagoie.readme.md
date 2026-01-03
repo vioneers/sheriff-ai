@@ -17,14 +17,14 @@
 - Added timing to ensure no time-out. If close to time-out, output random legal move.
 - Analyzed Git stats to identify edge cases, noting only three draws under the threefold repetition rule. Worked on threefold prevention, not yet completed.
 
-## Week 4
+## Week 4 
 - Threefold repetition handling with Zobrist hashing
     - Implemented `init_zobrist()`,`compute_key()`, `is_threefold()` and updated the key history in `make_move()` and `undo_move()` 
     - `alphaBetaMax` and `alphaBetaMin` evaluate threefold repetition with a score of 0, avoiding it when a better move exists and performing it only if the best outcome is the draw
-
-## Winter Holiday
-- On main branch:   
-    - Changed penalty sign issue in `evaluate_pawn_structure()`
-- On bitboards branch: 
+### Still for Week 4 but in Winter Break
+- Initial representation: Changed penalty sign issue in `evaluate_pawn_structure()`
+- Bitboards representation: 
     - Switched to bitboards representation for the file `evaluationbar.cpp` (updated `evaluate_material_and_position()`, `evaluate_mobility`,`evaluate_pawn_structure()`) 
     - Fixes in move generation (especially castling) and perft - perft now outputting right number of total moves, captures, en passants, castlings for given initial board from fen string
+    - Threefold repetition handling with Zobrist hashing for bitboards representation (`z_key` updated incrementally in `make_move()` to be more efficient than calling `compute_key()` every time)
+- Merged main (initial board representation) and bitboards branches, ensuring full commit history is preserved. The main branch now contains bitboards implementation. 
