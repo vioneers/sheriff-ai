@@ -8,11 +8,13 @@
 #include "move.h"
 #include "engine.h"
 #include "board.h"
+#include "zobrist.h"
 
 using namespace std; 
 
 int main(int argc, char* argv[])
 {
+	init_zobrist();
 	// parse arguments and make sure both filenames are given
 	auto [in_file_name, out_file_name] = parse_args(argc, argv);
 

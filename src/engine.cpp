@@ -148,6 +148,8 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
 #endif
         return evaluate();
     }
+    if (board.is_threefold())
+        return 0;
 
     int best = -INF;
 
@@ -235,6 +237,8 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
 #endif
         return evaluate();
     }
+    if (board.is_threefold())
+        return 0;
 
     int best = INF;
 

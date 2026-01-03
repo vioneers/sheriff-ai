@@ -1,9 +1,12 @@
 #include <bit>
 #include <sstream>
+#include <unordered_map>
+#include <cctype>
 
 #include "board.h"
 #include "bitboard.h"
 #include "debug.h"
+#include "zobrist.h"
 
 board_t::board_t()
 {
@@ -41,6 +44,11 @@ board_t::board_t()
     }
 
 	history.push_back({0, (1 << 4) - 1, -1, NONE, WHITE}); // z_key, castling_rights, ep_square, captured, turn
+	history.back().z_key = compute_key();
+	repetition_count.clear();
+	repetition_count[history.back().z_key] = 1;
+	irreversible_stack.clear();
+    last_irreversible_index = 0;
 }
 
 board_t::board_t(std::string fen)
@@ -109,12 +117,26 @@ board_t::board_t(std::string fen)
 	current.ep_square = (ep == "-") ? -1 : string_to_sq(ep);
 
 	history.push_back(current);
+	history.back().z_key = compute_key();
+	repetition_count.clear();
+	repetition_count[history.back().z_key] = 1;
+	irreversible_stack.clear();
+    last_irreversible_index = 0;
 }
 
 board_t::board_t(std::vector <move_t> move_hist): board_t()
 {
 	for(auto& move : move_hist)
 		make_move(move, true);
+}
+
+int base_index(PieceType PIECE){
+	return int(PIECE) - 1; // PAWN = 1 to 0, ..., KING = 6 to 5
+}
+
+int index(PieceType PIECE, Color c){
+	// WHITE PAWN to WHITE KING: 0 -> 5, BLACK PAWN to BLACK KING: 6 -> 11
+	return (c == WHITE ? 0 : 6) + base_index(PIECE);
 }
 
 // Making and unmaking moves
@@ -124,6 +146,7 @@ bool board_t::make_move(move_t &m, bool apply_flags){
 		return false;
 
 	const state_t& prev = history.back();
+	uint64_t old_key = prev.z_key;
 	Color Us = prev.turn;
 	Color Them = ~Us;
 	int Up = (Us == WHITE) ? 8 : -8;
@@ -180,7 +203,8 @@ bool board_t::make_move(move_t &m, bool apply_flags){
 	bool is_promo = (flag & 0b1000) != 0;
 	bool is_double = (flag == DOUBLE_PUSH);
 	bool is_capture = is_ep || (flag & CAPTURE) || (occupancy[Them] & to_bb);
-
+	PieceType promo_piece = NONE;
+	int rook_from = -1, rook_to = -1; 
 	state_t next = prev;
 	next.turn = Them;
 	next.ep_square = -1;
@@ -231,6 +255,7 @@ bool board_t::make_move(move_t &m, bool apply_flags){
 		pieces[promo] |= to_bb;
 		occupancy[Us] |= to_bb;
 		mailbox[to] = promo;
+		promo_piece = promo;
 	} else {
 		pieces[moving] |= to_bb;
 		occupancy[Us] |= to_bb;
@@ -238,8 +263,6 @@ bool board_t::make_move(move_t &m, bool apply_flags){
 	}
 
 	if (is_castle && moving == KING) {
-		int rook_from = -1;
-		int rook_to = -1;
 		if (Us == WHITE) {
 			if (flag == K_CASTLE) { rook_from = H1; rook_to = F1; }
 			else { rook_from = A1; rook_to = D1; }
@@ -285,17 +308,81 @@ bool board_t::make_move(move_t &m, bool apply_flags){
 		next.ep_square = from + Up;
 
 	occupancy[BOTH] = occupancy[WHITE] | occupancy[BLACK];
-	history.push_back(next);
+
+	// Computing the new key from the old key, without calling compute_key() again for efficiency
+	uint64_t new_key  = old_key; 
+	// Remove old en passant 
+	int old_ep = (prev.ep_square == -1) ? 8 : (prev.ep_square % 8);
+	new_key ^= Z_EPFILE[old_ep];
+	// Remove old castle
+	new_key ^= Z_CASTLE[prev.castling_rights & 0xF];
+	// Toggle side to move
+	new_key ^= Z_TURN;
+	// Remove from from, add to to
+	new_key ^= Z_PSQ[index(moving, Us)][from];
+	if (is_promo)
+		new_key ^= Z_PSQ[index(promo_piece, Us)][to]; // add promoting piece
+	else
+		new_key ^= Z_PSQ[index(moving, Us)][to];
+	// Captures 
+	if (is_ep) // En passant capture
+		new_key ^= Z_PSQ[index(PAWN, Them)][to - Up]; 
+	else if (next.captured != NONE) // Normal capture
+		new_key ^= Z_PSQ[index(next.captured, Them)][to];
+	// Handle rook movement during castling
+	if(is_castle && moving == KING){
+		new_key ^= Z_PSQ[index(ROOK, Us)][rook_from];
+		new_key ^= Z_PSQ[index(ROOK, Us)][rook_to];
+	}
+	// Add new castle
+	new_key ^= Z_CASTLE[next.castling_rights & 0xF];
+	// Add new en passant
+	int new_ep = (next.ep_square == -1) ? 8 : (next.ep_square % 8);
+	new_key ^= Z_EPFILE[new_ep];
+
+	next.z_key = new_key;
+	history.push_back(next); 
+	irreversible_stack.push_back(last_irreversible_index);
+
+	// See if irreversible 
+	bool castle_changed = (next.castling_rights != prev.castling_rights);
+	bool irreversible = is_capture || (moving == PAWN) || is_promo || castle_changed;
+
+	if (irreversible){
+		last_irreversible_index = (int)history.size() - 1;
+		repetition_count.clear();
+		repetition_count[next.z_key] = 1; 
+	}
+	else
+		repetition_count[next.z_key] += 1; 
 	return true;
 }
 
 void board_t::undo_move(move_t m)
 {
-	if (history.size() < 2)
+	if (history.size() < 2 || irreversible_stack.empty())
 		return;
 
 	const state_t last = history.back();
+	uint64_t key_leaving = last.z_key;
+	auto it = repetition_count.find(key_leaving);
+    if (it != repetition_count.end()){ // if found 
+        if (--(it->second) == 0) // new count == 0
+            repetition_count.erase(it);
+    }
+
+	int prev_last_irreversible = irreversible_stack.back();
+    irreversible_stack.pop_back();
+    bool was_irreversible = prev_last_irreversible != last_irreversible_index;
+
 	history.pop_back();
+
+	last_irreversible_index = prev_last_irreversible;
+    if (was_irreversible){
+        repetition_count.clear();
+        for (int i = last_irreversible_index; i < static_cast<int>(history.size()); ++i)
+            repetition_count[history[i].z_key] += 1;
+    }
 
 	Color them = last.turn;
 	Color us = ~them;
@@ -381,6 +468,52 @@ void board_t::undo_move(move_t m)
 	}
 
 	occupancy[BOTH] = occupancy[WHITE] | occupancy[BLACK];
+
+}
+
+uint64_t board_t::compute_key(){
+	uint64_t key = 0; 
+	for (int piece = 1; piece <=6; piece++){ // PAWN to KING
+		PieceType PIECE = (PieceType)piece;
+
+		// White
+		Bitboard w = pieces[piece] & occupancy[WHITE];
+		while (w){
+			int sq = pop_lsb(w);
+			key ^= Z_PSQ[index(PIECE, WHITE)][sq];
+		}
+
+		// Black
+		Bitboard b = pieces[piece] & occupancy[BLACK];
+		while (b){
+			int sq = pop_lsb(b);
+			key ^= Z_PSQ[index(PIECE, BLACK)][sq];
+		}
+	}
+
+	if (!history.empty()){
+		// Side to move
+		if (history.back().turn == BLACK)
+			key ^= Z_TURN;
+		// Castling
+		key ^= Z_CASTLE[history.back().castling_rights & 0xF];
+		// En passant
+		int ep_file;
+		if (history.back().ep_square == -1)
+			ep_file = 8;
+		else
+			ep_file = history.back().ep_square % 8;
+		key ^= Z_EPFILE[ep_file];
+	}
+
+	return key;
+}
+
+bool board_t::is_threefold() const{
+	if (history.empty())
+		return false;
+	auto it = repetition_count.find(history.back().z_key);
+    return it != repetition_count.end() && it->second >= 3;
 }
 
 // Other utilities

@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include "types.h"
 #include "move.h"
 
@@ -20,6 +21,10 @@ struct board_t {
 
     // History stack for unmake_move
     std::vector<state_t> history;
+
+	std::unordered_map<uint64_t, int> repetition_count; // for is_threefold
+	std::vector<int> irreversible_stack;
+	int last_irreversible_index;
 
 	board_t(); // default constructor - initial position
 	board_t(std::string fen);
@@ -49,6 +54,8 @@ struct board_t {
     bool make_move(move_t& m, bool apply_flags = false);
     void undo_move(move_t m);
 	
+	uint64_t compute_key(); //Zobrist key for threefold repretition tracking
+	bool is_threefold() const;
 	// other utils
 	std::string to_fen() const;
 };
