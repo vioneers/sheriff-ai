@@ -31,3 +31,4 @@ Additions :
 - Resolved ties between moves with same move score heuristic by picking the first move.
 - Implemented `move_order_score()` for the bitboard implementation to sort moves before calling the AlphaBeta.
 - Added a debugging mode which tracks the three best moves at each position and outputs the lines which gave those bestmoves.
+- Modified Alpha-Beta so it scores a faster checkmate as a better sequence of moves.

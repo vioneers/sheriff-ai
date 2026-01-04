@@ -166,7 +166,7 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
 #ifdef SHERIFF_DEBUG_PV
         pv_length[ply] = 0;
 #endif
-        return board.in_check(board.history.back().turn) ? -MATE_SCORE + depth_left : 0; // checkmate or stalemate
+        return board.in_check(board.history.back().turn) ? -MATE_SCORE + ply : 0; // checkmate or stalemate
     }
 
     if (is_root){
@@ -255,7 +255,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
 #ifdef SHERIFF_DEBUG_PV
         pv_length[ply] = 0;
 #endif
-        return board.in_check(board.history.back().turn) ? MATE_SCORE - depth_left : 0; // checkmate or stalemate
+        return board.in_check(board.history.back().turn) ? MATE_SCORE - ply : 0; // checkmate or stalemate
     }
     if (is_root){
         best_move = legal.front();
