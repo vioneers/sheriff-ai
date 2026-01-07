@@ -1,191 +1,231 @@
 #include "evaluationbar.h"
-#include <iostream>
-#include <vector>
-#include <cmath>
 #include "board.h"
 #include "move.h"
 
-// ---------------------------------------------------------
-//  MATERIAL VALUES
-// ---------------------------------------------------------
-static int piece_value(int piece_type) {
-    switch(piece_type) {
-        case PAWN: return 100; 
-        case KNIGHT: return 320; 
-        case BISHOP: return 330; 
-        case ROOK: return 500; 
-        case QUEEN: return 900; 
-        case KING: return 20000; 
-        default: return 0;
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <algorithm>
+
+static int piece_value(int p) {
+    switch (p) {
+        case PAWN:   return 100;
+        case KNIGHT: return 320;
+        case BISHOP: return 330;
+        case ROOK:   return 500;
+        case QUEEN:  return 900;
+        case KING:   return 20000;
+        default:     return 0;
     }
 }
 
-static int mirror_sq(int sq){
-    return sq^56;
-}
-
-// ---------------------------------------------------------
-//  PIECE-SQUARE TABLES
-//  White aligned, mirrored for Black
-// ---------------------------------------------------------
+static int mirror_sq(int sq) { return sq ^ 56; }
 static const int pst[6][64] = {
-    // P
-    {0, 0, 0, 0, 0, 0, 0, 0,
-     50,50,50,50,50,50,50,50,
-     10,10,20,30,30,20,10,10,
-     5, 5,10,25,25,10, 5, 5,
-     0, 0, 0,20,20, 0, 0, 0,
-     5,-5,-10, 0, 0,-10,-5, 5,
-     5,10,10,-20,-20,10,10, 5,
-     0, 0, 0, 0, 0, 0, 0, 0
-    },
-    // N 
-    {-50,-40,-30,-30,-30,-30,-40,-50,
-     -40,-20,  0,  0,  0,  0,-20,-40,
-     -30,  0, 10, 15, 15, 10,  0,-30,
-     -30,  5, 15, 20, 20, 15,  5,-30,
-     -30,  0, 15, 20, 20, 15,  0,-30,
-     -30,  5, 10, 15, 15, 10,  5,-30,
-     -40,-20,  0,  5,  5,  0,-20,-40,
-     -50,-40,-30,-30,-30,-30,-40,-50
-    },
-    // B
-    {-20,-10,-10,-10,-10,-10,-10,-20,
-     -10,  0,  0,  0,  0,  0,  0,-10,
-     -10,  0,  5, 10, 10,  5,  0,-10,
-     -10,  5,  5, 10, 10,  5,  5,-10,
-     -10,  0, 10, 10, 10, 10,  0,-10,
-     -10, 10, 10, 10, 10, 10, 10,-10,
-     -10,  5,  0,  0,  0,  0,  5,-10,
-     -20,-10,-10,-10,-10,-10,-10,-20
-    },
-    // R
-    {0,0,0,0,0,0,0,0,
-     5,10,10,10,10,10,10,5,
-     -5,0,0,0,0,0,0,-5,
-     -5,0,0,0,0,0,0,-5,
-     -5,0,0,0,0,0,0,-5,
-     -5,0,0,0,0,0,0,-5,
-     -5,0,0,0,0,0,0,-5,
-     0,0,5,10,10,5,0,0
-    },
-    // Q
-    {-20,-10,-10,-5,-5,-10,-10,-20,
-     -10,0,0,0,0,0,0,-10,
-     -10,0,5,5,5,5,0,-10,
-     -5,0,5,5,5,5,0,-5,
-     0,0,5,5,5,5,0,-5,
-     -10,0,5,5,5,5,0,-10,
-     -10,0,0,0,0,0,0,-10,
-     -20,-10,-10,-5,-5,-10,-10,-20
-    },
-    // K (King safer in endgame → simplified version)
-    {-30,-40,-40,-50,-50,-40,-40,-30,
-     -30,-40,-40,-50,-50,-40,-40,-30,
-     -30,-40,-40,-50,-50,-40,-40,-30,
-     -30,-40,-40,-50,-50,-40,-40,-30,
-     -20,-30,-30,-40,-40,-30,-30,-20,
-     -10,-20,-20,-20,-20,-20,-20,-10,
-     20, 20, 0, 0, 0, 0, 20,20,
-     30, 40, 10,0, 0,10,40,30
-    }
 };
 
-// ---------------------------------------------------------
-//  MATERIAL + PST Eval
-// ---------------------------------------------------------
-int evaluate_material_and_position(board_t* board) {
+static int eval_material_pst(board_t* board) {
     int score = 0;
-    for (int sq = 0; sq < 64; sq++){
-        PieceType piece = board->mailbox[sq];
-        if (piece == NONE) // no piece
-            continue;
-        bool is_black = (board->occupancy[BLACK] >> sq) & 1ULL;
-        int piece_val = piece_value(piece);
-        int bonus = pst[piece - 1][is_black ? mirror_sq(sq) : sq];
-        score += is_black ? -(piece_val + bonus) : +(piece_val + bonus);
+    for (int sq = 0; sq < 64; sq++) {
+        int p = board->mailbox[sq];
+        if (p == NONE) continue;
+
+        bool black = (board->occupancy[BLACK] >> sq) & 1ULL;
+        int val = piece_value(p);
+        int psq = pst[p - 1][black ? mirror_sq(sq) : sq];
+        score += black ? -(val + psq) : +(val + psq);
     }
     return score;
 }
 
-// ---------------------------------------------------------
-//  MOBILITY EVALUATION
-// ---------------------------------------------------------
-static const int MOBILITY = 5;
-
-int evaluate_mobility(board_t* board) {
+static int eval_mobility(board_t* board) {
     std::vector<move_t> moves;
     Color turn = board->history.back().turn;
     board->get_legal_moves(moves);
-
-    int mobility = static_cast<int>(moves.size());
-
-    return (turn == WHITE ? +mobility : -mobility) * MOBILITY;
+    return (turn == WHITE ? 1 : -1) * int(moves.size()) * 4;
 }
 
-// ---------------------------------------------------------
-//  PAWN STRUCTURE: Isolated & Doubled penalties
-// ---------------------------------------------------------
-static const int ISOLATED_PAWN_PENALTY = 15;
-static const int DOUBLED_PAWN_PENALTY  = 20;
-
-int evaluate_pawn_structure(board_t* board) {
+static int eval_pawn_structure(board_t* board) {
     int score = 0;
-    int pawnsW[8]={0}, pawnsB[8]={0};
+    int w[8] = {0}, b[8] = {0};
 
-    for (int sq = 0; sq < 64; sq++){
-        PieceType piece = board->mailbox[sq];
-        if (piece != PAWN) 
-            continue;
-        bool is_black = (board->occupancy[BLACK] >> sq) & 1ULL;
-        int file = sq & 7; // sq % 8
-        if(is_black)
-            pawnsB[file]++;
-        else
-            pawnsW[file]++;
+    for (int sq = 0; sq < 64; sq++) {
+        if (board->mailbox[sq] != PAWN) continue;
+        bool black = (board->occupancy[BLACK] >> sq) & 1ULL;
+        (black ? b : w)[sq & 7]++;
     }
-    // negative points for white, positive points for black
-    for(int f=0;f<8;f++){
-        if(pawnsW[f] >= 2) score -= DOUBLED_PAWN_PENALTY;
-        if(pawnsB[f] >= 2) score += DOUBLED_PAWN_PENALTY;
 
-        if(pawnsW[f] == 1 && f>0 && f<7 && pawnsW[f-1]==0 && pawnsW[f+1]==0)
-            score -= ISOLATED_PAWN_PENALTY;
-        if(pawnsB[f] == 1 && f>0 && f<7 && pawnsB[f-1]==0 && pawnsB[f+1]==0)
-            score += ISOLATED_PAWN_PENALTY;
+    for (int f = 0; f < 8; f++) {
+        if (w[f] >= 2) score -= 20;
+        if (b[f] >= 2) score += 20;
+
+        if (w[f] == 1 && f > 0 && f < 7 && !w[f - 1] && !w[f + 1])
+            score -= 15;
+        if (b[f] == 1 && f > 0 && f < 7 && !b[f - 1] && !b[f + 1])
+            score += 15;
     }
     return score;
 }
 
-// ---------------------------------------------------------
-//  MAIN EVAL
-// ---------------------------------------------------------
+static double phase(board_t* board) {
+    int m = 0;
+    for (int i = 0; i < 64; i++) {
+        switch (board->mailbox[i]) {
+            case PAWN: m += 1; break;
+            case KNIGHT:
+            case BISHOP: m += 3; break;
+            case ROOK: m += 5; break;
+            case QUEEN: m += 9; break;
+            default: break;
+        }
+    }
+    return std::clamp(m / 40.0, 0.0, 1.0);
+}
+static int eval_opening_development(board_t* board) {
+    if (phase(board) < 0.75) return 0;
+
+    int score = 0;
+
+    for (int sq = 0; sq < 64; sq++) {
+        int p = board->mailbox[sq];
+        bool black = (board->occupancy[BLACK] >> sq) & 1ULL;
+
+        // Penalize early queen
+        if (p == QUEEN) {
+            int rank = sq / 8;
+            if ((!black && rank > 1) || (black && rank < 6))
+                score += black ? 40 : -40;
+        }
+
+        // Reward developed minors
+        if (p == KNIGHT || p == BISHOP) {
+            int r = sq / 8;
+            if ((!black && r >= 2) || (black && r <= 5))
+                score += black ? -35 : 35;
+        }
+
+        // Central pawns
+        if (p == PAWN) {
+            int f = sq & 7;
+            if (f == 3 || f == 4)
+                score += black ? -25 : 25;
+        }
+    }
+    return score;
+}
+static int eval_king_activity(board_t* board) {
+    if (phase(board) > 0.35) return 0;
+
+    int wk = -1, bk = -1;
+    for (int i = 0; i < 64; i++) {
+        if (board->mailbox[i] == KING) {
+            if ((board->occupancy[WHITE] >> i) & 1ULL) wk = i;
+            else bk = i;
+        }
+    }
+    if (wk == -1 || bk == -1) return 0;
+
+    auto center_dist = [](int sq) {
+        int r = sq / 8, f = sq & 7;
+        return std::abs(r - 3) + std::abs(f - 3);
+    };
+
+    int score = (center_dist(bk) - center_dist(wk)) * 15;
+
+    int dr = std::abs((wk / 8) - (bk / 8));
+    int df = std::abs((wk & 7) - (bk & 7));
+    if ((dr == 2 && df == 0) || (dr == 0 && df == 2))
+        score += 40;
+
+    return score;
+}
+
+static int eval_passed_pawns(board_t* board) {
+    if (phase(board) > 0.5) return 0;
+
+    int score = 0;
+
+    for (int sq = 0; sq < 64; sq++) {
+        if (board->mailbox[sq] != PAWN) continue;
+
+        bool black = (board->occupancy[BLACK] >> sq) & 1ULL;
+        int rank = sq / 8;
+
+        bool passed = true;
+        for (int i = 0; i < 64; i++) {
+            if (board->mailbox[i] != PAWN) continue;
+            bool opp = ((board->occupancy[black ? WHITE : BLACK] >> i) & 1ULL);
+            if (!opp) continue;
+
+            int f1 = sq & 7, f2 = i & 7;
+            if (std::abs(f1 - f2) <= 1) passed = false;
+        }
+
+        if (!passed) continue;
+
+        int advance = black ? (7 - rank) : rank;
+        score += black ? -(advance * 20) : (advance * 20);
+    }
+
+    return score;
+}
+
+static int eval_king_confinement(board_t* board) {
+    if (phase(board) > 0.4) return 0;
+
+    int k = -1;
+    bool black = false;
+    for (int i = 0; i < 64; i++) {
+        if (board->mailbox[i] == KING &&
+            ((board->occupancy[BLACK] >> i) & 1ULL)) {
+            k = i; black = true;
+        }
+    }
+    if (k == -1) return 0;
+
+    int r = k / 8, f = k & 7;
+    int edge = std::min({r, 7 - r, f, 7 - f});
+
+    return (3 - edge) * (black ? -40 : 40);
+}
+
+
 int evaluate_board(board_t* board) {
     int score = 0;
-    score += 1.2*evaluate_material_and_position(board);
-    score += 0.5*evaluate_mobility(board);
-    score += evaluate_pawn_structure(board);
+
+    score += int(1.1 * eval_material_pst(board));
+    score += eval_mobility(board);
+    score += eval_pawn_structure(board);
+
+    score += eval_opening_development(board);
+
+    score += eval_king_activity(board);
+    score += eval_passed_pawns(board);
+    score += eval_king_confinement(board);
+
     return score;
 }
 
-// // ---------------------------------------------------------
-//  PRINT EVALUATION BAR
-// ---------------------------------------------------------
 void print_evaluation_bar(board_t* board) {
     int cp = evaluate_board(board);
     double eval = cp / 100.0;
-
-    double scaled = 50 + (eval / 10.0) * 50.0;
-    if (scaled < 0) scaled = 0;
-    if (scaled > 100) scaled = 100;
-
-    int barCount = static_cast<int>(scaled / 5);
+    double s = 50 + (eval / 10.0) * 50;
+    s = std::clamp(s, 0.0, 100.0);
+    int n = int(s / 5);
 
     std::cout << "[";
-    for(int i = 0; i < barCount; i++) std::cout << "*";
-    for(int i = barCount; i < 20; i++) std::cout << "-";
-    std::cout << "] "
-              << (eval >= 0 ? "+" : "") << eval
-              << (eval > 0 ? " white" : (eval < 0 ? " black" : " equal"))
-              << " eval\n";
+    for (int i = 0; i < n; i++) std::cout << "*";
+    for (int i = n; i < 20; i++) std::cout << "-";
+    std::cout << "] " << eval << "\n";
 }
+
+
+//use these to run in MSY2 :
+// cd "/c/Users/THINKPAD E16 I7/Documents/sheriff-ai"
+//rm -rf build
+//ls
+// cmake -S . -B build \
+//   -G "Unix Makefiles" \
+//   -DCMAKE_BUILD_TYPE=Release \
+//   -DCMAKE_CXX_FLAGS="-O2"
+//cmake --build build -j
+// ./build/sheriff_ai_lichess.exe
