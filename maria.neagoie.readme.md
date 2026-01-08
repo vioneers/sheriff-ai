@@ -28,3 +28,7 @@
     - Fixes in move generation (especially castling) and perft - perft now outputting right number of total moves, captures, en passants, castlings for given initial board from fen string
     - Threefold repetition handling with Zobrist hashing for bitboards representation (`z_key` updated incrementally in `make_move()` to be more efficient than calling `compute_key()` every time)
 - Merged main (initial board representation) and bitboards branches, ensuring full commit history is preserved. The main branch now contains bitboards implementation. 
+
+## Week 5
+- Implemented `opening_book.h` and `opening_book.cpp` - selected a few openings ranked as best in chess (vector `OPENINGS`), implemented functions `init_lookup_table()`, `legal_move_uci()`, `probe()` (but not yet used by our engine - to be done later)
+- Analysed game logs of this Thursday - we draw on both threefold and fifty move rule

@@ -9,12 +9,12 @@
 #include "engine.h"
 #include "board.h"
 #include "zobrist.h"
+#include "opening_book.h"
 
 using namespace std; 
 
 int main(int argc, char* argv[])
 {
-	init_zobrist();
 	// parse arguments and make sure both filenames are given
 	auto [in_file_name, out_file_name] = parse_args(argc, argv);
 
@@ -31,6 +31,10 @@ int main(int argc, char* argv[])
 	
 	vector<move_t> move_hist = get_move_history(in_file_name);
 	engine_t engine(move_hist);
+	
+	#ifdef DEBUG
+	std::cout << engine.board.to_fen() << '\n';
+	#endif
 	
 	using clock = std::chrono::steady_clock;
 	engine.start_time = clock::now();

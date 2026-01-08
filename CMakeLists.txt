@@ -19,6 +19,7 @@ set(ENGINE_SOURCES
     src/board.cpp
     src/move.cpp
 	src/evaluationbar.cpp
+    src/opening_book.cpp
 	${MAGIC_HEADER}
 )
 

@@ -7,6 +7,8 @@
 
 #include "engine.h"
 #include "evaluationbar.h"
+#include "zobrist.h"
+#include "opening_book.h"
 
 constexpr int INF = std::numeric_limits<int>::max();
 constexpr int MATE_SCORE = 1000000;
@@ -116,10 +118,15 @@ int engine_t::move_order_score(const move_t& m, int ply){
     return score;
 }
 
-engine_t::engine_t(std::vector<move_t> move_hist)
-    : board(move_hist), 
-	  best_move("e2e4"), // placeholder value 
-      best_move_valid(false) {};
+engine_t::engine_t(std::vector<move_t> move_hist){
+    // initializations of zobrist key and opening book lookup table moved to engine constructor
+    init_zobrist();
+    board = board_t(move_hist);
+    best_move = move_t("e2e4"); // placeholder value 
+    best_move_valid = false; 
+    // OpeningBook openings; not used yet
+    // openings.init_lookup_table();
+};
 
 // temporary
 int engine_t::evaluate(){
