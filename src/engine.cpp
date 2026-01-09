@@ -137,6 +137,116 @@ int engine_t::evaluate(){
 	return evaluate_board(&board);
 }
 
+int engine_t::quiesenceSearchMax(int alpha, int beta, int ply){
+    using clock = std::chrono::steady_clock;
+    if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
+        time_up = true;
+    int stand_pat = evaluate();
+    if(time_up)
+        return stand_pat;
+    if(board.is_threefold())
+        return 0;
+
+    if (stand_pat >= beta)
+        return beta;
+    if (stand_pat > alpha)
+        alpha = stand_pat;
+
+    std::vector<move_t> legal; 
+    board.get_legal_moves(legal); 
+    bool is_check = board.in_check(board.history.back().turn);
+    if (!is_check){
+        // keep only captures and promotions if not in check
+        // if in check, keep all legal moves
+        for (auto it = legal.begin(); it != legal.end(); ){ // increasing it by case - see below
+            bool is_capture = (it->flag() & CAPTURE) != 0;
+            bool is_promo = (it->flag() & PROMO_N) != 0;
+            if (!(is_capture || is_promo))
+                it = legal.erase(it); // remove this move and go to the next one 
+            else   
+                ++it;
+        }
+    }
+
+    // sort by move_order_score
+    std::stable_sort(legal.begin(), legal.end(),
+        [&](const move_t& a, const move_t &b){
+            return move_order_score(a, ply) > move_order_score(b, ply);
+        }
+    );
+
+    if (legal.empty() && is_check)
+        return -MATE_SCORE + ply;
+
+    int best = alpha;
+    for (auto &move : legal){
+        board.make_move(move);
+        int score = quiesenceSearchMin(best, beta, ply + 1);
+        board.undo_move(move);
+
+        if (score >= beta)
+            return beta;
+        if (score > best)
+            best = score;
+    }
+    return best;
+}
+
+int engine_t::quiesenceSearchMin(int alpha, int beta, int ply){
+    using clock = std::chrono::steady_clock;
+    if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
+        time_up = true;
+    int stand_pat = evaluate();
+    if(time_up)
+        return stand_pat;
+    if(board.is_threefold())
+        return 0;
+
+    if (stand_pat <= alpha)
+        return alpha;
+    if (stand_pat < beta)
+        beta = stand_pat;
+
+    std::vector<move_t> legal; 
+    board.get_legal_moves(legal); 
+    bool is_check = board.in_check(board.history.back().turn);
+    if (!is_check){
+        // keep only captures and promotions if not in check
+        // if in check, keep all legal moves
+        for (auto it = legal.begin(); it != legal.end(); ){ // increasing it by case - see below
+            bool is_capture = (it->flag() & CAPTURE) != 0;
+            bool is_promo = (it->flag() & PROMO_N) != 0;
+            if (!(is_capture || is_promo))
+                it = legal.erase(it); // remove this move and go to the next one 
+            else   
+                ++it;
+        }
+    }
+
+    // sort by move_order_score
+    std::stable_sort(legal.begin(), legal.end(),
+        [&](const move_t& a, const move_t &b){
+            return move_order_score(a, ply) > move_order_score(b, ply);
+        }
+    );
+
+    if (legal.empty() && is_check)
+        return MATE_SCORE - ply;
+
+    int best = beta;
+    for (auto &move : legal){
+        board.make_move(move);
+        int score = quiesenceSearchMax(alpha, best, ply + 1);
+        board.undo_move(move);
+
+        if (score <= alpha)
+            return alpha;
+        if (score < best)
+            best = score;
+    }
+    return best;
+}
+
 int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, int ply){
     using clock = std::chrono::steady_clock;
 
@@ -153,14 +263,22 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
     if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
         time_up = true;
 
-    if (time_up || depth_left == 0) {
+    if (time_up){
 #ifdef SHERIFF_DEBUG_PV
         pv_length[ply] = 0;
 #endif
         return evaluate();
     }
+
     if (board.is_threefold())
         return 0;
+
+    if (depth_left == 0) {
+#ifdef SHERIFF_DEBUG_PV
+        pv_length[ply] = 0;
+#endif
+        return quiesenceSearchMax(alpha, beta, ply);
+    }
 
     int best = -INF;
 
@@ -261,15 +379,22 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
 
     if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
         time_up = true;
-        
-    if (time_up || depth_left == 0) {
+    if (time_up){
 #ifdef SHERIFF_DEBUG_PV
         pv_length[ply] = 0;
 #endif
         return evaluate();
     }
+
     if (board.is_threefold())
         return 0;
+
+    if (depth_left == 0) {
+#ifdef SHERIFF_DEBUG_PV
+        pv_length[ply] = 0;
+#endif
+        return quiesenceSearchMin(alpha, beta, ply);
+    }
 
     int best = INF;
 

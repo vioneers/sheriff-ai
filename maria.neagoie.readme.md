@@ -32,3 +32,4 @@
 ## Week 5
 - Implemented `opening_book.h` and `opening_book.cpp` - selected a few openings ranked as best in chess (vector `OPENINGS`), implemented functions `init_lookup_table()`, `legal_move_uci()`, `probe()` (but not yet used by our engine - to be done later)
 - Analysed game logs of this Thursday - we draw on both threefold and fifty move rule
+- Implemented Quiesence Search - functions `quiesenceSearchMax()` and `quiesenceSearchMin()` -> called in `alphaBetaMax()` and `alphaBetaMin()` when `depth_left = 0` to extend the search on capture and promotion moves, and reduce horizon effect

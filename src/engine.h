@@ -36,6 +36,8 @@ struct engine_t {
     // Inspiration for the Alpha-Beta algorihtm: https://www.chessprogramming.org
     // depth_left = depth left until stopping
     int evaluate(); 
+    int quiesenceSearchMax(int alpha, int beta, int ply);
+    int quiesenceSearchMin(int alpha, int beta, int ply);
     int alphaBetaMax(int alpha, int beta, int depth_left, bool is_root = true, int ply = 0);
     int alphaBetaMin(int alpha, int beta, int depth_left, bool is_root = true, int ply = 0);
 
