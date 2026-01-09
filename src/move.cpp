@@ -42,12 +42,16 @@ std::string move_t::to_code() const
 	switch(flag())
 	{
 		case PROMO_Q:
+		case PROMO_Q_CAP:
 			return code += "q";
 		case PROMO_R:
+		case PROMO_R_CAP:
 			return code += "r";
 		case PROMO_B:
+		case PROMO_B_CAP:
 			return code += "b";
 		case PROMO_N:
+		case PROMO_N_CAP:
 			return code += "n";
 	}
 	
