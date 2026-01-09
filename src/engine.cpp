@@ -12,6 +12,10 @@
 
 constexpr int INF = std::numeric_limits<int>::max();
 constexpr int MATE_SCORE = 1000000;
+constexpr int LMR_FULL_MOVES = 3;
+constexpr int LMR_MIN_DEPTH = 3;
+constexpr int LMR_DEEPER_MOVES = 6;
+constexpr int LMR_DEEPER_DEPTH = 5;
 
 static int mv_piece_value(PieceType s){
     switch(s){
@@ -181,12 +185,31 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
         best_move_valid = true;
     }
 
+    bool in_check = board.in_check(board.history.back().turn);
+    int move_index = 0;
     for (auto& move: legal){
-        board.make_move(move);
-        int score = alphaBetaMin(alpha, beta, depth_left - 1, false, ply + 1);
-        board.undo_move(move);
-
         bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
+        bool do_lmr = !is_root && is_quiet && !in_check && depth_left >= LMR_MIN_DEPTH && move_index >= LMR_FULL_MOVES;
+        int score = 0;
+
+        if (do_lmr){
+            int reduction = (move_index >= LMR_DEEPER_MOVES && depth_left >= LMR_DEEPER_DEPTH) ? 2 : 1;
+            int reduced_depth = depth_left - 1 - reduction;
+            if (reduced_depth < 0)
+                reduced_depth = 0;
+            board.make_move(move);
+            score = alphaBetaMin(alpha, beta, reduced_depth, false, ply + 1);
+            board.undo_move(move);
+            if (score > alpha){
+                board.make_move(move);
+                score = alphaBetaMin(alpha, beta, depth_left - 1, false, ply + 1);
+                board.undo_move(move);
+            }
+        } else {
+            board.make_move(move);
+            score = alphaBetaMin(alpha, beta, depth_left - 1, false, ply + 1);
+            board.undo_move(move);
+        }
 
 #ifdef SHERIFF_DEBUG_PV
         if (is_root)
@@ -219,6 +242,7 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
             }
             return score;
         }
+        ++move_index;
     }
     return best;
 }
@@ -268,12 +292,31 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
         best_move = legal.front();
         best_move_valid = true;
     }
+    bool in_check = board.in_check(board.history.back().turn);
+    int move_index = 0;
     for (auto& move: legal){
-        board.make_move(move);
-        int score = alphaBetaMax (alpha, beta, depth_left - 1, false, ply + 1);
-        board.undo_move(move);
-
         bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
+        bool do_lmr = !is_root && is_quiet && !in_check && depth_left >= LMR_MIN_DEPTH && move_index >= LMR_FULL_MOVES;
+        int score = 0;
+
+        if (do_lmr){
+            int reduction = (move_index >= LMR_DEEPER_MOVES && depth_left >= LMR_DEEPER_DEPTH) ? 2 : 1;
+            int reduced_depth = depth_left - 1 - reduction;
+            if (reduced_depth < 0)
+                reduced_depth = 0;
+            board.make_move(move);
+            score = alphaBetaMax(alpha, beta, reduced_depth, false, ply + 1);
+            board.undo_move(move);
+            if (score < beta){
+                board.make_move(move);
+                score = alphaBetaMax(alpha, beta, depth_left - 1, false, ply + 1);
+                board.undo_move(move);
+            }
+        } else {
+            board.make_move(move);
+            score = alphaBetaMax (alpha, beta, depth_left - 1, false, ply + 1);
+            board.undo_move(move);
+        }
 
 #ifdef SHERIFF_DEBUG_PV
         if (is_root)
@@ -306,6 +349,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
             }
             return score;
         }
+        ++move_index;
     }
     return best;
 }

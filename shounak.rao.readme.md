@@ -32,3 +32,7 @@ Additions :
 - Implemented `move_order_score()` for the bitboard implementation to sort moves before calling the AlphaBeta.
 - Added a debugging mode which tracks the three best moves at each position and outputs the lines which gave those bestmoves.
 - Modified Alpha-Beta so it scores a faster checkmate as a better sequence of moves.
+
+## Week 6
+- Implemented Late move reductions(LMR) which reduce the search depth for later, "worse", moves. If a reduced-depth move seems
+to perform well then we perform a full depth search on it.
