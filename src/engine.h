@@ -10,7 +10,7 @@ struct engine_t {
     move_t root_best_move;
 
     static constexpr int MAX_PLY = 64;
-    static constexpr int DEFAULT_SEARCH_DEPTH = 7;
+    static constexpr int DEFAULT_SEARCH_DEPTH = 8;
     uint16_t killer_moves[MAX_PLY][2]{};
     int history_table[64][64]{};
 
@@ -33,7 +33,7 @@ struct engine_t {
     std::chrono::milliseconds time_limit{0};
     bool time_up = false;
 
-	engine_t(std::vector <move_t> &move_hist);
+	engine_t(const std::vector <move_t> &move_hist);
 
     // Inspiration for the Alpha-Beta algorihtm: https://www.chessprogramming.org
     // depth_left = depth left until stopping
@@ -68,7 +68,8 @@ struct engine_t {
         NodeType node_type;        // the type of score EXACT, LOWERBOUND, UPPERBOUND
         move_t bestMove;           // best move found from this position
     
-    } TT[1 << TT_SIZE] = {};          // 16MB //TODO: find good table size
+    };
+    std::vector<TTentry> TT{1 << TT_SIZE};          // 16MB //TODO: find good table size
    
     // implemented in transpotition.cpp
     

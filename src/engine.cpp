@@ -141,7 +141,7 @@ void engine_t::score_moves(std::vector<move_t> &moves, int ply) {
         move.score = move_order_score(move, ply);
 }
 
-engine_t::engine_t(std::vector<move_t> &move_hist){
+engine_t::engine_t(const std::vector<move_t> &move_hist){
     // initializations of zobrist key and opening book lookup table moved to engine constructor
     init_zobrist();
     board = board_t(move_hist);

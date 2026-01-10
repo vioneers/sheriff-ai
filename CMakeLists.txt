@@ -5,7 +5,9 @@ set(CMAKE_CXX_STANDARD 20)
 
 option(SHERIFF_DEBUG_PV "Enable root PV debug logging" OFF)
 
-if(MSVC)
+if(UNIX)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,stack-size=60000000")
+elseif(MSVC)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:30000000")
 endif()
 

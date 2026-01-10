@@ -124,7 +124,7 @@ board_t::board_t(std::string fen)
     last_irreversible_index = 0;
 }
 
-board_t::board_t(std::vector <move_t> &move_hist): board_t()
+board_t::board_t(const std::vector <move_t> &move_hist): board_t()
 {
 	for (auto& m : move_hist)
 	{
@@ -165,10 +165,8 @@ board_t::board_t(std::vector <move_t> &move_hist): board_t()
 		if (occupancy[Them] & to_bb)
 			flag |= CAPTURE;
 
-		// Modify the old move with new flag
-		m = move_t(from, to, flag);
-
-		make_move(m);
+		// apply the old move with new flag
+		make_move(move_t(from, to, flag));
 	}
 }
 

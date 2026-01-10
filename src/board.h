@@ -28,7 +28,7 @@ struct board_t {
 
 	board_t(); // default constructor - initial position
 	board_t(std::string fen);
-	board_t(std::vector <move_t> &move_hist);
+	board_t(const std::vector <move_t> &move_hist);
 
 	// check detection
 	bool square_attacked(int sq, Color by_color) const;

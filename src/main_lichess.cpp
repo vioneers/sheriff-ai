@@ -16,7 +16,7 @@ static string compute_bestmove(const vector<move_t>& move_hist, const string& fe
     if (!fen.empty()) {
         board_t board(fen);
         for (auto move : move_hist) {
-            board.make_move(move, true);
+            board.make_move(move);
         }
         engine.board = board;
     }
@@ -41,7 +41,6 @@ static string compute_bestmove(const vector<move_t>& move_hist, const string& fe
 }
 
 int main() {
-    init_zobrist();
     vector<move_t> move_hist;
     string position_fen;
     string line;
