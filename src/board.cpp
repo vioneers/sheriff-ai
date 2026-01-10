@@ -124,7 +124,7 @@ board_t::board_t(std::string fen)
     last_irreversible_index = 0;
 }
 
-board_t::board_t(std::vector <move_t> move_hist): board_t()
+board_t::board_t(std::vector <move_t> &move_hist): board_t()
 {
 	for(auto& move : move_hist)
 		make_move(move, true);

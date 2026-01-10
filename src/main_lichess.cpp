@@ -32,12 +32,12 @@ static string compute_bestmove(const vector<move_t>& move_hist, const string& fe
     else
         engine.alphaBetaMin(-1e9, 1e9, engine_t::DEFAULT_SEARCH_DEPTH);
 
-    if(!engine.best_move_valid)
+    if(engine.root_best_move.is_null())
         return "0000"; // UCI “no move” sentinel for terminal nodes
 #ifdef SHERIFF_DEBUG_PV
     engine.log_root_lines();
 #endif
-    return engine.best_move.to_code();
+    return engine.root_best_move.to_code();
 }
 
 int main() {

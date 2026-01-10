@@ -1,6 +1,8 @@
 #include <vector>
 #include <limits>
 #include <algorithm>
+#include <bit>
+
 #ifdef SHERIFF_DEBUG_PV
 #include <iostream>
 #endif
@@ -11,7 +13,6 @@
 #include "opening_book.h"
 
 constexpr int INF = std::numeric_limits<int>::max();
-constexpr int MATE_SCORE = 1000000;
 constexpr int LMR_FULL_MOVES = 3;
 constexpr int LMR_MIN_DEPTH = 3;
 constexpr int LMR_DEEPER_MOVES = 6;
@@ -32,7 +33,7 @@ static int mv_piece_value(PieceType s){
 }
 
 static int popcount_bb(Bitboard bb){
-    return __builtin_popcountll(bb);
+    return std::popcount(bb);
 }
 
 static bool null_move_allowed(const board_t& b){
@@ -135,12 +136,16 @@ int engine_t::move_order_score(const move_t& m, int ply){
     return score;
 }
 
-engine_t::engine_t(std::vector<move_t> move_hist){
+void engine_t::score_moves(std::vector<move_t> &moves, int ply) {
+    for (auto& move : moves)
+        move.score = move_order_score(move, ply);
+}
+
+engine_t::engine_t(std::vector<move_t> &move_hist){
     // initializations of zobrist key and opening book lookup table moved to engine constructor
     init_zobrist();
     board = board_t(move_hist);
-    best_move = move_t("e2e4"); // placeholder value 
-    best_move_valid = false; 
+    root_best_move = move_t{}; // initialize as null move
     // OpeningBook openings; not used yet
     // openings.init_lookup_table();
 };
@@ -181,12 +186,10 @@ int engine_t::quiesenceSearchMax(int alpha, int beta, int ply){
         }
     }
 
+    // score the moves using move_order_score
+    score_moves(legal, ply);
     // sort by move_order_score
-    std::stable_sort(legal.begin(), legal.end(),
-        [&](const move_t& a, const move_t &b){
-            return move_order_score(a, ply) > move_order_score(b, ply);
-        }
-    );
+    std::stable_sort(legal.begin(), legal.end());
 
     if (legal.empty() && is_check)
         return -MATE_SCORE + ply;
@@ -236,12 +239,10 @@ int engine_t::quiesenceSearchMin(int alpha, int beta, int ply){
         }
     }
 
+    // score the moves using move_order_score
+    score_moves(legal, ply);
     // sort by move_order_score
-    std::stable_sort(legal.begin(), legal.end(),
-        [&](const move_t& a, const move_t &b){
-            return move_order_score(a, ply) > move_order_score(b, ply);
-        }
-    );
+    std::stable_sort(legal.begin(), legal.end());
 
     if (legal.empty() && is_check)
         return MATE_SCORE - ply;
@@ -260,12 +261,18 @@ int engine_t::quiesenceSearchMin(int alpha, int beta, int ply){
     return best;
 }
 
-int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, int ply){
+
+
+int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, int ply) {
     using clock = std::chrono::steady_clock;
 
-    if (is_root && ply == 0){
+    // best move for this node (call of the function)
+    move_t best_move{}; // initialy the null move
+
+    if (is_root && ply == 0) {
         std::fill(&killer_moves[0][0], &killer_moves[0][0] + (MAX_PLY * 2), 0);
         std::fill(&history_table[0][0], &history_table[0][0] + (64 * 64), 0);
+
 #ifdef SHERIFF_DEBUG_PV
         std::fill(&pv_length[0], &pv_length[0] + MAX_PLY, 0);
         for (int i = 0; i < 3; ++i)
@@ -276,7 +283,7 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
     if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
         time_up = true;
 
-    if (time_up){
+    if (time_up) {
 #ifdef SHERIFF_DEBUG_PV
         pv_length[ply] = 0;
 #endif
@@ -306,31 +313,53 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
         return quiesenceSearchMax(alpha, beta, ply);
     }
 
+    // check TT before starting the search
+    int alphaOrig = alpha; // store inital alpha (needed for TTstore)
+    const uint64_t z_key = board.history.back().z_key;
+
+    int ttScore = -INF;
+    move_t ttMove{}; // initially ttMove is null
+
+    if (checkTT(z_key, depth_left, ply, alpha, beta, ttScore, ttMove))
+    {
+#ifdef DEBUG
+        TT_CUTOFFS++;
+#endif
+        return ttScore;
+    }
+
     int best = -INF;
 
     std::vector <move_t> legal;
-    board.get_legal_moves(legal); 
+    board.get_legal_moves(legal);
 
-    std::stable_sort(legal.begin(), legal.end(), [&](const move_t& a, const move_t& b){
-        return move_order_score(a, ply) > move_order_score(b, ply);
-    });
-    
-    if (legal.empty()){
-        if (is_root)
-            best_move_valid = false;
+    score_moves(legal, ply);
+
+    // sort using the overloaded operator of move_t which compares score
+    std::stable_sort(legal.begin(), legal.end()); 
+
+    // if TT has sugested a "best move" between the legal moves from this position, try that first
+    if (!ttMove.is_null())
+        for (move_t& move : legal)
+            if (move.data == ttMove.data) {
+                move_t tmp = legal[0];
+                legal[0] = move;
+                move = tmp;
+                break;
+            }
+
+    if (legal.empty()) {
 #ifdef SHERIFF_DEBUG_PV
         pv_length[ply] = 0;
 #endif
-        return board.in_check(board.history.back().turn) ? -MATE_SCORE + ply : 0; // checkmate or stalemate
+        best = board.in_check(board.history.back().turn) ? -MATE_SCORE + ply : 0; // checkmate or stalemate
     }
-
-    if (is_root){
-        best_move = legal.front();
-        best_move_valid = true;
+    else if (is_root) {
+        root_best_move = legal.front();
     }
 
     int move_index = 0;
-    for (auto& move: legal){
+    for (auto& move : legal) {
         bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
         bool do_lmr = !is_root && is_quiet && !in_check && depth_left >= LMR_MIN_DEPTH && move_index >= LMR_FULL_MOVES;
         int score = 0;
@@ -340,7 +369,7 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
             pv_length[ply + 1] = 0;
 #endif
 
-        if (do_lmr){
+        if (do_lmr) {
             int reduction = (move_index >= LMR_DEEPER_MOVES && depth_left >= LMR_DEEPER_DEPTH) ? 2 : 1;
             int reduced_depth = depth_left - 1 - reduction;
             if (reduced_depth < 0)
@@ -348,12 +377,13 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
             board.make_move(move);
             score = alphaBetaMin(alpha, beta, reduced_depth, false, ply + 1);
             board.undo_move(move);
-            if (score > alpha){
+            if (score > alpha) {
                 board.make_move(move);
                 score = alphaBetaMin(alpha, beta, depth_left - 1, false, ply + 1);
                 board.undo_move(move);
             }
-        } else {
+        }
+        else {
             board.make_move(move);
             score = alphaBetaMin(alpha, beta, depth_left - 1, false, ply + 1);
             board.undo_move(move);
@@ -363,43 +393,53 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
         if (is_root)
             update_root_lines(*this, move, score, ply, true);
 #endif
-        
-        if (score > best){
-            if (is_root){
-                best_move = move;
-                best_move_valid = true;
+
+        if (score > best) {
+            if (is_root) {
+                root_best_move = move;
             }
             best = score;
+            best_move = move;
 #ifdef SHERIFF_DEBUG_PV
             update_pv(*this, ply, move);
 #endif
             if (score > alpha)
-                alpha = score; 
+                alpha = score;
         }
-        if (score >= beta){
-            if (is_quiet){
+        if (score >= beta) {
+            if (is_quiet) {
                 int from = move.from();
                 int to = move.to();
                 history_table[from][to] += depth_left * depth_left;
-                if (ply >= 0 && ply < MAX_PLY){
-                    if (killer_moves[ply][0] != move.data){
+                if (ply >= 0 && ply < MAX_PLY) {
+                    if (killer_moves[ply][0] != move.data) {
                         killer_moves[ply][1] = killer_moves[ply][0];
                         killer_moves[ply][0] = move.data;
                     }
                 }
             }
-            return score;
+            break; // just break is enough, makes flow simpler for TT
         }
         ++move_index;
     }
+
+    TTstore(z_key, best, depth_left, ply, alphaOrig, beta, best_move);
+
     return best;
 }
-int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, int ply){
+
+
+
+int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, int ply) {
     using clock = std::chrono::steady_clock;
 
-    if (is_root && ply == 0){
+    // best move for this node (call of the function)
+    move_t best_move{}; // initialy the null move
+
+    if (is_root && ply == 0) {
         std::fill(&killer_moves[0][0], &killer_moves[0][0] + (MAX_PLY * 2), 0);
         std::fill(&history_table[0][0], &history_table[0][0] + (64 * 64), 0);
+
 #ifdef SHERIFF_DEBUG_PV
         std::fill(&pv_length[0], &pv_length[0] + MAX_PLY, 0);
         for (int i = 0; i < 3; ++i)
@@ -409,7 +449,8 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
 
     if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
         time_up = true;
-    if (time_up){
+
+    if (time_up) {
 #ifdef SHERIFF_DEBUG_PV
         pv_length[ply] = 0;
 #endif
@@ -439,29 +480,52 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
         return quiesenceSearchMin(alpha, beta, ply);
     }
 
+    // check TT before starting the search
+    int betaOrig = beta; // store inital beta (needed for TTstore)
+    uint64_t z_key = board.history.back().z_key;
+
+    int ttScore = INF;
+    move_t ttMove{}; // initially ttMove is null
+
+    if (checkTT(z_key, depth_left, ply, alpha, beta, ttScore, ttMove))
+    {
+#ifdef DEBUG
+        TT_CUTOFFS++;
+#endif
+        return ttScore;
+    }
+
     int best = INF;
 
     std::vector <move_t> legal;
     board.get_legal_moves(legal);
 
-    std::stable_sort(legal.begin(), legal.end(), [&](const move_t& a, const move_t& b){
-        return move_order_score(a, ply) > move_order_score(b, ply);
-    });
+    score_moves(legal, ply);
 
-    if (legal.empty()){
-        if (is_root)
-            best_move_valid = false;
+    // sort using the overloaded operator of move_t which compares score
+    std::stable_sort(legal.begin(), legal.end());
+
+    // if TT has sugested a "best move" between the legal moves from this position, try that first
+    if (!ttMove.is_null())
+        for (move_t& move : legal)
+            if (move.data == ttMove.data) {
+                move_t tmp = legal[0];
+                legal[0] = move;
+                move = tmp;
+                break;
+            }
+
+    if (legal.empty()) {
 #ifdef SHERIFF_DEBUG_PV
         pv_length[ply] = 0;
 #endif
-        return board.in_check(board.history.back().turn) ? MATE_SCORE - ply : 0; // checkmate or stalemate
+        best = board.in_check(board.history.back().turn) ? MATE_SCORE - ply : 0; // checkmate or stalemate
     }
-    if (is_root){
-        best_move = legal.front();
-        best_move_valid = true;
+    else if (is_root) {
+        root_best_move = legal.front();
     }
     int move_index = 0;
-    for (auto& move: legal){
+    for (auto& move : legal) {
         bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
         bool do_lmr = !is_root && is_quiet && !in_check && depth_left >= LMR_MIN_DEPTH && move_index >= LMR_FULL_MOVES;
         int score = 0;
@@ -479,14 +543,15 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
             board.make_move(move);
             score = alphaBetaMax(alpha, beta, reduced_depth, false, ply + 1);
             board.undo_move(move);
-            if (score < beta){
+            if (score < beta) {
                 board.make_move(move);
                 score = alphaBetaMax(alpha, beta, depth_left - 1, false, ply + 1);
                 board.undo_move(move);
             }
-        } else {
+        }
+        else {
             board.make_move(move);
-            score = alphaBetaMax (alpha, beta, depth_left - 1, false, ply + 1);
+            score = alphaBetaMax(alpha, beta, depth_left - 1, false, ply + 1);
             board.undo_move(move);
         }
 
@@ -494,37 +559,42 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
         if (is_root)
             update_root_lines(*this, move, score, ply, false);
 #endif
-        
-        if (score < best){
-            if (is_root){
-                best_move = move;
-                best_move_valid = true;
+
+        if (score < best) {
+            if (is_root) {
+                root_best_move = move;
             }
             best = score;
+            best_move = move;
 #ifdef SHERIFF_DEBUG_PV
             update_pv(*this, ply, move);
 #endif
             if (score < beta)
-                beta = score; 
+                beta = score;
         }
-        if (score <= alpha){
-            if (is_quiet){
+        if (score <= alpha) {
+            if (is_quiet) {
                 int from = move.from();
                 int to = move.to();
                 history_table[from][to] += depth_left * depth_left;
-                if (ply >= 0 && ply < MAX_PLY){
-                    if (killer_moves[ply][0] != move.data){
+                if (ply >= 0 && ply < MAX_PLY) {
+                    if (killer_moves[ply][0] != move.data) {
                         killer_moves[ply][1] = killer_moves[ply][0];
                         killer_moves[ply][0] = move.data;
                     }
                 }
             }
-            return score;
+            break; // just break is enough, makes flow simpler for TT
         }
         ++move_index;
     }
+
+    TTstore(z_key, best, depth_left, ply, betaOrig, beta, best_move);
+
     return best;
 }
+
+
 
 #ifdef SHERIFF_DEBUG_PV
 void engine_t::log_root_lines() const {

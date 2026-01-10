@@ -64,3 +64,11 @@ enum Square : int {
     // Rank 8
     A8, B8, C8, D8, E8, F8, G8, H8
 };
+
+// Types for transposition tables
+
+// Node type tells us what the score represents 
+// EXACT: we found calculated the actual score of the position alpha < score < beta
+// LOWER_BOUND: when maximizing we returned because beta < score
+// UPPER_BOUND: when minimizing we returned because score < alpha
+enum NodeType: uint8_t { EXACT, LOWER_BOUND, UPPER_BOUND };

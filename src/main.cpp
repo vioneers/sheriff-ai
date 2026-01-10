@@ -10,6 +10,7 @@
 #include "board.h"
 #include "zobrist.h"
 #include "opening_book.h"
+#include "debug.h"
 
 using namespace std; 
 
@@ -31,10 +32,7 @@ int main(int argc, char* argv[])
 	
 	vector<move_t> move_hist = get_move_history(in_file_name);
 	engine_t engine(move_hist);
-	
-	#ifdef DEBUG
-	std::cout << engine.board.to_fen() << '\n';
-	#endif
+	engine.board = board_t{ "r1bqkb1r/pp3pp1/2n2n1p/3p4/8/1QP1BNP1/PP2PP1P/RN2KB1R b KQkq - 1 10" };
 	
 	using clock = std::chrono::steady_clock;
 	engine.start_time = clock::now();
@@ -42,7 +40,6 @@ int main(int argc, char* argv[])
 	engine.time_up = false;
 
 	// if playing White, you are maximizing, else minimize
-	// TODO: make it so we always maximize
     int score = 0;
     Color turn = engine.board.history.back().turn;
 	if(turn == WHITE)
@@ -51,7 +48,7 @@ int main(int argc, char* argv[])
 		score = engine.alphaBetaMin(-1e9, 1e9, engine_t::DEFAULT_SEARCH_DEPTH);
     // cout << score;
 
-    if(!engine.best_move_valid){
+    if(engine.root_best_move.is_null()){
         std::ofstream outFile(out_file_name);
         outFile.close(); // leave empty to signal no legal moves
         return 0;
@@ -59,7 +56,13 @@ int main(int argc, char* argv[])
 #ifdef SHERIFF_DEBUG_PV
     engine.log_root_lines();
 #endif
-	write_move(engine.best_move, out_file_name);
+
+#ifdef DEBUG
+	print_debug_info(engine);
+#endif
+
+
+	write_move(engine.root_best_move, out_file_name);
 
     return 0;
 }
@@ -67,6 +70,6 @@ int main(int argc, char* argv[])
 
 // Build with "cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release"
 
-// FOR DEBUGGING: "cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DSHERIFF_DEBUG_PV=ON && cmake --build build --config Release"
+// FOR DEBUGGING: "cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSHERIFF_DEBUG_PV=ON && cmake --build build --config Debug"
 
 // Run with "./build/sheriff-ai -H input.txt -m output.txt"

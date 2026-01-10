@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 option(SHERIFF_DEBUG_PV "Enable root PV debug logging" OFF)
 
 if(MSVC)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:10000000")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:30000000")
 endif()
 
 # Generate magic.h in src/
@@ -19,6 +19,7 @@ set(ENGINE_SOURCES
     src/board.cpp
     src/move.cpp
 	src/evaluationbar.cpp
+    src/transposition.cpp
     src/opening_book.cpp
 	${MAGIC_HEADER}
 )

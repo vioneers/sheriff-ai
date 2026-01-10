@@ -3,15 +3,17 @@
 #include <chrono>
 #include "board.h"
 
+constexpr int MATE_SCORE = 1000000; // needed for TT
+
 struct engine_t {
 	board_t board; 	
-    move_t best_move; 
-    bool best_move_valid;
+    move_t root_best_move;
 
     static constexpr int MAX_PLY = 64;
     static constexpr int DEFAULT_SEARCH_DEPTH = 7;
     uint16_t killer_moves[MAX_PLY][2]{};
     int history_table[64][64]{};
+
 #ifdef SHERIFF_DEBUG_PV
     move_t pv_moves[MAX_PLY][MAX_PLY]{};
     int pv_length[MAX_PLY]{};
@@ -31,7 +33,7 @@ struct engine_t {
     std::chrono::milliseconds time_limit{0};
     bool time_up = false;
 
-	engine_t(std::vector <move_t> move_hist);
+	engine_t(std::vector <move_t> &move_hist);
 
     // Inspiration for the Alpha-Beta algorihtm: https://www.chessprogramming.org
     // depth_left = depth left until stopping
@@ -42,7 +44,52 @@ struct engine_t {
     int alphaBetaMin(int alpha, int beta, int depth_left, bool is_root = true, int ply = 0);
 
     int move_order_score(const move_t& m, int ply);
+    
+    // call move_order_score and set move.score for all move in moves
+    void score_moves(std::vector<move_t> &moves, int ply);
+
 #ifdef SHERIFF_DEBUG_PV
     void log_root_lines() const;
 #endif
+
+    // transposition table (TT)
+    static constexpr int TT_SIZE = 20; // TT length = 2^TT_SIZE
+
+#ifdef DEBUG
+    int TT_PROBES = 0; // counter of how many calls we make to probe
+    int TT_HITS = 0; // number of times we found the node we were looking for in TT when probing
+    int TT_CUTOFFS = 0; // number of positions we stoped searching thanks to TT
+#endif
+
+    struct TTentry { // 16 bytes
+        uint64_t key;              // Zobrist hash
+        int score;                 // evaluation score
+        uint8_t depth_left;        // depth node was searched to (1 byte to reduce size)
+        NodeType node_type;        // the type of score EXACT, LOWERBOUND, UPPERBOUND
+        move_t bestMove;           // best move found from this position
+    
+    } TT[1 << TT_SIZE] = {};          // 16MB //TODO: find good table size
+   
+    // implemented in transpotition.cpp
+    
+    TTentry& TTprobe(uint64_t z_key); // return reference the slot in TT where z_key points to (may be epmty or not contain the right board), always check the full z_key of the returned element
+    
+    void TTstore(
+        uint64_t key,
+        int score,
+        int depth_left,
+        int ply,                  // only used to normalize the mate score
+        int alpha,                  // !!! use original bound that was given when calling alphaBetaMax()
+        int beta,                   // !!! use original bound that was given when calling alphaBetaMin()
+        move_t bestMove);           // store the current board state 
+    
+    bool checkTT(                   // check if we can use info from the TT to end the search (return TRUE if yes)
+        uint64_t key,
+        int depth_left,             // only used to normalize the mate score
+        int ply,
+        int alpha,
+        int beta,
+        int& outScore,
+        move_t& outMove
+    );
 };

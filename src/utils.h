@@ -7,6 +7,7 @@
 #include <fstream>
 
 #include "move.h"
+#include "engine.h"
 
 using namespace std;
 
@@ -85,4 +86,17 @@ void append_moves_from_tokens(vector<move_t>& moves, const vector<string>& token
         if (tokens[i].size() < 4) continue;
         moves.emplace_back(tokens[i]);
     }
+}
+
+void print_debug_info(engine_t& engine)
+{
+	using clock = std::chrono::steady_clock;
+
+	cout << engine.board.to_fen() << '\n';
+	cout << '\n';
+	cout << "running time : " << clock::now() - engine.start_time << '\n';
+	cout << '\n';
+	cout << "TT_PROBES : " << engine.TT_PROBES << '\n';
+	cout << "TT_HITS : " << engine.TT_HITS << '\n';
+	cout << "TT_CUTOFFS : " << engine.TT_CUTOFFS << '\n';
 }
