@@ -32,7 +32,6 @@ int main(int argc, char* argv[])
 	
 	vector<move_t> move_hist = get_move_history(in_file_name);
 	engine_t engine(move_hist);
-	engine.board = board_t{ "r1bqkb1r/pp3pp1/2n2n1p/3p4/8/1QP1BNP1/PP2PP1P/RN2KB1R b KQkq - 1 10" };
 	
 	using clock = std::chrono::steady_clock;
 	engine.start_time = clock::now();
@@ -60,7 +59,6 @@ int main(int argc, char* argv[])
 #ifdef DEBUG
 	print_debug_info(engine);
 #endif
-
 
 	write_move(engine.root_best_move, out_file_name);
 

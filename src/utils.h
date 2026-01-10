@@ -88,6 +88,7 @@ void append_moves_from_tokens(vector<move_t>& moves, const vector<string>& token
     }
 }
 
+#ifdef DEBUG
 void print_debug_info(engine_t& engine)
 {
 	using clock = std::chrono::steady_clock;
@@ -100,3 +101,4 @@ void print_debug_info(engine_t& engine)
 	cout << "TT_HITS : " << engine.TT_HITS << '\n';
 	cout << "TT_CUTOFFS : " << engine.TT_CUTOFFS << '\n';
 }
+#endif

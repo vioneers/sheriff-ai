@@ -51,7 +51,7 @@ struct board_t {
 
 	// apply_flags - Whether to make extra checks to apply the right flags to the move object. Used when applying moves converted from UCI
 	// return False if fail
-    bool make_move(move_t& m, bool apply_flags = false);
+    bool make_move(move_t m);
     void undo_move(move_t m);
     bool make_null_move();
     void undo_null_move();

@@ -126,8 +126,50 @@ board_t::board_t(std::string fen)
 
 board_t::board_t(std::vector <move_t> &move_hist): board_t()
 {
-	for(auto& move : move_hist)
-		make_move(move, true);
+	for (auto& m : move_hist)
+	{
+		const state_t& prev = history.back();
+		Color Us = prev.turn;
+		Color Them = ~Us;
+		int Up = (Us == WHITE) ? 8 : -8;
+
+		int from = m.from();
+		int to = m.to();
+		Bitboard to_bb = 1ULL << to;
+
+		PieceType moving = mailbox[from];
+
+		int flag = m.flag();
+
+		// Apply correct flags to the move object
+		if (moving == PAWN) {
+
+			Bitboard PromoRank = (Us == WHITE) ? RankMask[7] : RankMask[0];
+
+			if (flag == QUIET) // Skip if flag is already set (ie for promotion)
+				// Only check for double push and en passant, as promotion is handled when converting from UCI format
+				if (to == from + 2 * Up)
+					flag = DOUBLE_PUSH;
+				else if (prev.ep_square != -1 && to == prev.ep_square) // If moving pawn to ep_square => en passant capture
+					flag = EP_CAPTURE;
+			// Normal pawn capture is caught by the final capture check
+		}
+		else if (moving == KING) {
+			// Check for castling
+			if ((from == E1 && to == G1) || (from == E8 && to == G8)) // King side
+				flag = K_CASTLE;
+			if ((from == E1 && to == C1) || (from == E8 && to == C8)) // Queen side
+				flag = Q_CASTLE;
+		}
+
+		if (occupancy[Them] & to_bb)
+			flag |= CAPTURE;
+
+		// Modify the old move with new flag
+		m = move_t(from, to, flag);
+
+		make_move(m);
+	}
 }
 
 int base_index(PieceType PIECE){
@@ -141,7 +183,7 @@ int index(PieceType PIECE, Color c){
 
 // Making and unmaking moves
 // Assumes moves are pseudolegal
-bool board_t::make_move(move_t &m, bool apply_flags){
+bool board_t::make_move(move_t m){
 	if (history.empty())
 		return false;
 
@@ -161,42 +203,6 @@ bool board_t::make_move(move_t &m, bool apply_flags){
 		return false;
 
 	int flag = m.flag();
-
-	// Apply correct flags to the move object
-	#ifndef DEBUG // If in debug mode, always recompute the flags
-	if (apply_flags) 
-	#endif
-	{
-		if (moving == PAWN) {
-
-			Bitboard PromoRank = (Us == WHITE) ? RankMask[7] : RankMask[0];
-
-			if (flag == QUIET) // Skip if flag is already set (ie for promotion)
-				// Only check for double push and en passant, as promotion is handled when converting from UCI format
-				if (to == from + 2 * Up)
-					flag = DOUBLE_PUSH;
-				else if (prev.ep_square != -1 && to == prev.ep_square) // If moving pawn to ep_square => en passant capture
-					flag = EP_CAPTURE;
-					// Normal pawn capture is caught by the final capture check
-		}
-		else if (moving == KING) {
-			// Check for castling
-			if ((from == E1 && to == G1) || (from == E8 && to == G8)) // King side
-				flag = K_CASTLE;
-			if ((from == E1 && to == C1) || (from == E8 && to == C8)) // Queen side
-				flag = Q_CASTLE;
-		}
-
-		if (occupancy[Them] & to_bb)
-			flag |= CAPTURE;
-
-		if (!apply_flags)
-			// If in debug mode, make sure the flag detected corresponds to the one actually set
-			ASSERT(flag == m.flag(), "apply_flags produced flag " << flag << " instead of " << m.flag());
-		
-		// Modify the old move with new flag
-		m = move_t(from, to, flag);
-	}
 
 	bool is_ep = (flag == EP_CAPTURE);
 	bool is_castle = (flag == K_CASTLE || flag == Q_CASTLE);
