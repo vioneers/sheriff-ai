@@ -16,6 +16,8 @@ constexpr int LMR_FULL_MOVES = 3;
 constexpr int LMR_MIN_DEPTH = 3;
 constexpr int LMR_DEEPER_MOVES = 6;
 constexpr int LMR_DEEPER_DEPTH = 5;
+constexpr int NMP_MIN_DEPTH = 3;
+constexpr int NMP_REDUCTION = 2;
 
 static int mv_piece_value(PieceType s){
     switch(s){
@@ -27,6 +29,17 @@ static int mv_piece_value(PieceType s){
         case KING: return 20000;
         default: return 0;
     }
+}
+
+static int popcount_bb(Bitboard bb){
+    return __builtin_popcountll(bb);
+}
+
+static bool null_move_allowed(const board_t& b){
+    int pawns = popcount_bb(b.pieces[PAWN] & b.occupancy[BOTH]);
+    int majors = popcount_bb((b.pieces[ROOK] | b.pieces[QUEEN]) & b.occupancy[BOTH]);
+    int minors = popcount_bb((b.pieces[KNIGHT] | b.pieces[BISHOP]) & b.occupancy[BOTH]);
+    return !(pawns == 0 && majors == 0 && minors <= 2);
 }
 
 #ifdef SHERIFF_DEBUG_PV
@@ -273,6 +286,19 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
     if (board.is_threefold())
         return 0;
 
+    bool in_check = board.in_check(board.history.back().turn);
+    if (!is_root && !in_check && depth_left >= NMP_MIN_DEPTH && null_move_allowed(board)){
+        int reduced_depth = depth_left - 1 - NMP_REDUCTION;
+        if (reduced_depth < 0)
+            reduced_depth = 0;
+        if (board.make_null_move()){
+            int score = alphaBetaMin(beta - 1, beta, reduced_depth, false, ply + 1);
+            board.undo_null_move();
+            if (score >= beta)
+                return score;
+        }
+    }
+
     if (depth_left == 0) {
 #ifdef SHERIFF_DEBUG_PV
         pv_length[ply] = 0;
@@ -303,12 +329,16 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
         best_move_valid = true;
     }
 
-    bool in_check = board.in_check(board.history.back().turn);
     int move_index = 0;
     for (auto& move: legal){
         bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
         bool do_lmr = !is_root && is_quiet && !in_check && depth_left >= LMR_MIN_DEPTH && move_index >= LMR_FULL_MOVES;
         int score = 0;
+
+#ifdef SHERIFF_DEBUG_PV
+        if (ply + 1 < MAX_PLY)
+            pv_length[ply + 1] = 0;
+#endif
 
         if (do_lmr){
             int reduction = (move_index >= LMR_DEEPER_MOVES && depth_left >= LMR_DEEPER_DEPTH) ? 2 : 1;
@@ -389,6 +419,19 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
     if (board.is_threefold())
         return 0;
 
+    bool in_check = board.in_check(board.history.back().turn);
+    if (!is_root && !in_check && depth_left >= NMP_MIN_DEPTH && null_move_allowed(board)){
+        int reduced_depth = depth_left - 1 - NMP_REDUCTION;
+        if (reduced_depth < 0)
+            reduced_depth = 0;
+        if (board.make_null_move()){
+            int score = alphaBetaMax(alpha, alpha + 1, reduced_depth, false, ply + 1);
+            board.undo_null_move();
+            if (score <= alpha)
+                return score;
+        }
+    }
+
     if (depth_left == 0) {
 #ifdef SHERIFF_DEBUG_PV
         pv_length[ply] = 0;
@@ -417,12 +460,16 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
         best_move = legal.front();
         best_move_valid = true;
     }
-    bool in_check = board.in_check(board.history.back().turn);
     int move_index = 0;
     for (auto& move: legal){
         bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
         bool do_lmr = !is_root && is_quiet && !in_check && depth_left >= LMR_MIN_DEPTH && move_index >= LMR_FULL_MOVES;
         int score = 0;
+
+#ifdef SHERIFF_DEBUG_PV
+        if (ply + 1 < MAX_PLY)
+            pv_length[ply + 1] = 0;
+#endif
 
         if (do_lmr){
             int reduction = (move_index >= LMR_DEEPER_MOVES && depth_left >= LMR_DEEPER_DEPTH) ? 2 : 1;

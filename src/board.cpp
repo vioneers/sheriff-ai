@@ -358,6 +358,58 @@ bool board_t::make_move(move_t &m, bool apply_flags){
 	return true;
 }
 
+bool board_t::make_null_move()
+{
+	if (history.empty())
+		return false;
+
+	const state_t& prev = history.back();
+	state_t next = prev;
+	next.turn = ~prev.turn;
+	next.ep_square = -1;
+	next.captured = NONE;
+
+	uint64_t new_key = prev.z_key;
+	int old_ep = (prev.ep_square == -1) ? 8 : (prev.ep_square % 8);
+	new_key ^= Z_EPFILE[old_ep];
+	new_key ^= Z_TURN;
+	int new_ep = 8;
+	new_key ^= Z_EPFILE[new_ep];
+	next.z_key = new_key;
+
+	history.push_back(next);
+	irreversible_stack.push_back(last_irreversible_index);
+	repetition_count[next.z_key] += 1;
+	return true;
+}
+
+void board_t::undo_null_move()
+{
+	if (history.size() < 2 || irreversible_stack.empty())
+		return;
+
+	const state_t last = history.back();
+	uint64_t key_leaving = last.z_key;
+	auto it = repetition_count.find(key_leaving);
+    if (it != repetition_count.end()){
+        if (--(it->second) == 0)
+            repetition_count.erase(it);
+    }
+
+	int prev_last_irreversible = irreversible_stack.back();
+    irreversible_stack.pop_back();
+    bool was_irreversible = prev_last_irreversible != last_irreversible_index;
+
+	history.pop_back();
+
+	last_irreversible_index = prev_last_irreversible;
+    if (was_irreversible){
+        repetition_count.clear();
+        for (int i = last_irreversible_index; i < static_cast<int>(history.size()); ++i)
+            repetition_count[history[i].z_key] += 1;
+    }
+}
+
 void board_t::undo_move(move_t m)
 {
 	if (history.size() < 2 || irreversible_stack.empty())

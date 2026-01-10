@@ -36,3 +36,5 @@ Additions :
 ## Week 6
 - Implemented Late move reductions(LMR) which reduce the search depth for later, "worse", moves. If a reduced-depth move seems
 to perform well then we perform a full depth search on it.
+- Added null-move pruning, this allows us to 'pass' a move so that we can detect positions that are so strong that they remain
+good even without making a move, if it is so then we prune the branch, allowing us to reduce the search tree.

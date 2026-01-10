@@ -53,6 +53,8 @@ struct board_t {
 	// return False if fail
     bool make_move(move_t& m, bool apply_flags = false);
     void undo_move(move_t m);
+    bool make_null_move();
+    void undo_null_move();
 	
 	uint64_t compute_key(); //Zobrist key for threefold repretition tracking
 	bool is_threefold() const;
