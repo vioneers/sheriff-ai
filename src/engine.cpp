@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <bit>
 
-#ifdef SHERIFF_DEBUG_PV
+#ifdef DEBUG
 #include <iostream>
 #endif
 
@@ -43,7 +43,7 @@ static bool null_move_allowed(const board_t& b){
     return !(pawns == 0 && majors == 0 && minors <= 2);
 }
 
-#ifdef SHERIFF_DEBUG_PV
+#ifdef DEBUG
 static void update_pv(engine_t& eng, int ply, const move_t& move){
     eng.pv_moves[ply][0] = move;
     int child_len = (ply + 1 < engine_t::MAX_PLY) ? eng.pv_length[ply + 1] : 0;
@@ -266,57 +266,45 @@ int engine_t::quiesenceSearchMin(int alpha, int beta, int ply){
 int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, int ply) {
     using clock = std::chrono::steady_clock;
 
-    // best move for this node (call of the function)
+    // parameters for this node (call of the function)
     move_t best_move{}; // initialy the null move
+    int best = -INF;
+    int alphaOrig = alpha; // store inital alpha (needed for TTstore)
+    const uint64_t z_key = board.history.back().z_key;
 
     if (is_root && ply == 0) {
         std::fill(&killer_moves[0][0], &killer_moves[0][0] + (MAX_PLY * 2), 0);
         std::fill(&history_table[0][0], &history_table[0][0] + (64 * 64), 0);
 
-#ifdef SHERIFF_DEBUG_PV
+#ifdef DEBUG
         std::fill(&pv_length[0], &pv_length[0] + MAX_PLY, 0);
         for (int i = 0; i < 3; ++i)
             root_lines[i].valid = false;
 #endif
     }
 
-    if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
-        time_up = true;
-
-    if (time_up) {
-#ifdef SHERIFF_DEBUG_PV
+    // check for stalemate / checkmate before timeout (we might get a free pass on a better score)
+    bool in_check = board.in_check(board.history.back().turn);
+    bool in_stalemate = board.in_stalemate();
+    if (in_stalemate)
+    {
+#ifdef DEBUG
         pv_length[ply] = 0;
 #endif
-        return evaluate();
+        if (is_root) // if we are at root and in stalemate we have lost 
+            root_best_move = move_t{};
+
+        best = board.in_check(board.history.back().turn) ? -MATE_SCORE + ply : 0; // checkmate or stalemate
+        TTstore(z_key, best, depth_left, ply, alphaOrig, beta, best_move);
+        
+        return best;
     }
 
+    // check for threefold before timout just in case we can get a more acurate score
     if (board.is_threefold())
         return 0;
 
-    bool in_check = board.in_check(board.history.back().turn);
-    if (!is_root && !in_check && depth_left >= NMP_MIN_DEPTH && null_move_allowed(board)){
-        int reduced_depth = depth_left - 1 - NMP_REDUCTION;
-        if (reduced_depth < 0)
-            reduced_depth = 0;
-        if (board.make_null_move()){
-            int score = alphaBetaMin(beta - 1, beta, reduced_depth, false, ply + 1);
-            board.undo_null_move();
-            if (score >= beta)
-                return score;
-        }
-    }
-
-    if (depth_left == 0) {
-#ifdef SHERIFF_DEBUG_PV
-        pv_length[ply] = 0;
-#endif
-        return quiesenceSearchMax(alpha, beta, ply);
-    }
-
     // check TT before starting the search
-    int alphaOrig = alpha; // store inital alpha (needed for TTstore)
-    const uint64_t z_key = board.history.back().z_key;
-
     int ttScore = -INF;
     move_t ttMove{}; // initially ttMove is null
 
@@ -328,7 +316,39 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
         return ttScore;
     }
 
-    int best = -INF;
+    // check for timeout only after checking if we can prune the node (return from the function)
+    if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
+        time_up = true;
+
+    if (time_up) {
+#ifdef DEBUG
+        pv_length[ply] = 0;
+#endif
+        return evaluate();
+    }
+
+    // !!! At this point we know we are not in checkmate / stalemate (we have legal moves) !!!
+
+    if (!is_root && depth_left >= NMP_MIN_DEPTH && null_move_allowed(board)){
+        int reduced_depth = depth_left - 1 - NMP_REDUCTION;
+        if (reduced_depth < 0)
+            reduced_depth = 0;
+        if (board.make_null_move()){
+            int score = alphaBetaMin(beta - 1, beta, reduced_depth, false, ply + 1);
+            board.undo_null_move();
+            if (score >= beta)
+            {
+                return score;
+            }
+        }
+    }
+
+    if (depth_left == 0) {
+#ifdef DEBUG
+        pv_length[ply] = 0;
+#endif
+        return quiesenceSearchMax(alpha, beta, ply);
+    }
 
     std::vector <move_t> legal;
     board.get_legal_moves(legal);
@@ -348,15 +368,10 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
                 break;
             }
 
-    if (legal.empty()) {
-#ifdef SHERIFF_DEBUG_PV
-        pv_length[ply] = 0;
-#endif
-        best = board.in_check(board.history.back().turn) ? -MATE_SCORE + ply : 0; // checkmate or stalemate
-    }
-    else if (is_root) {
+   
+    /*if (is_root) {
         root_best_move = legal.front();
-    }
+    }*/
 
     int move_index = 0;
     for (auto& move : legal) {
@@ -364,7 +379,7 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
         bool do_lmr = !is_root && is_quiet && !in_check && depth_left >= LMR_MIN_DEPTH && move_index >= LMR_FULL_MOVES;
         int score = 0;
 
-#ifdef SHERIFF_DEBUG_PV
+#ifdef DEBUG
         if (ply + 1 < MAX_PLY)
             pv_length[ply + 1] = 0;
 #endif
@@ -389,7 +404,7 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
             board.undo_move(move);
         }
 
-#ifdef SHERIFF_DEBUG_PV
+#ifdef DEBUG
         if (is_root)
             update_root_lines(*this, move, score, ply, true);
 #endif
@@ -400,7 +415,7 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
             }
             best = score;
             best_move = move;
-#ifdef SHERIFF_DEBUG_PV
+#ifdef DEBUG
             update_pv(*this, ply, move);
 #endif
             if (score > alpha)
@@ -433,57 +448,45 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
 int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, int ply) {
     using clock = std::chrono::steady_clock;
 
-    // best move for this node (call of the function)
+    // parameters for this node (call of the function)
     move_t best_move{}; // initialy the null move
+    int best = INF;
+    int betaOrig = beta; // store inital beta (needed for TTstore)
+    const uint64_t z_key = board.history.back().z_key;
 
     if (is_root && ply == 0) {
         std::fill(&killer_moves[0][0], &killer_moves[0][0] + (MAX_PLY * 2), 0);
         std::fill(&history_table[0][0], &history_table[0][0] + (64 * 64), 0);
 
-#ifdef SHERIFF_DEBUG_PV
+#ifdef DEBUG
         std::fill(&pv_length[0], &pv_length[0] + MAX_PLY, 0);
         for (int i = 0; i < 3; ++i)
             root_lines[i].valid = false;
 #endif
     }
 
-    if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
-        time_up = true;
-
-    if (time_up) {
-#ifdef SHERIFF_DEBUG_PV
+    // check for stalemate / checkmate before timeout (we might get a free pass on a better score)
+    bool in_check = board.in_check(board.history.back().turn);
+    bool in_stalemate = board.in_stalemate();
+    if (in_stalemate)
+    {
+#ifdef DEBUG
         pv_length[ply] = 0;
 #endif
-        return evaluate();
+        if (is_root) // if we are at root and in stalemate we have lost 
+            root_best_move = move_t{};
+
+        best = board.in_check(board.history.back().turn) ? MATE_SCORE - ply : 0; // checkmate or stalemate
+        TTstore(z_key, best, depth_left, ply, betaOrig, beta, best_move);
+
+        return best;
     }
 
+    // check for threefold before timout just in case we can get a more acurate score
     if (board.is_threefold())
         return 0;
 
-    bool in_check = board.in_check(board.history.back().turn);
-    if (!is_root && !in_check && depth_left >= NMP_MIN_DEPTH && null_move_allowed(board)){
-        int reduced_depth = depth_left - 1 - NMP_REDUCTION;
-        if (reduced_depth < 0)
-            reduced_depth = 0;
-        if (board.make_null_move()){
-            int score = alphaBetaMax(alpha, alpha + 1, reduced_depth, false, ply + 1);
-            board.undo_null_move();
-            if (score <= alpha)
-                return score;
-        }
-    }
-
-    if (depth_left == 0) {
-#ifdef SHERIFF_DEBUG_PV
-        pv_length[ply] = 0;
-#endif
-        return quiesenceSearchMin(alpha, beta, ply);
-    }
-
     // check TT before starting the search
-    int betaOrig = beta; // store inital beta (needed for TTstore)
-    uint64_t z_key = board.history.back().z_key;
-
     int ttScore = INF;
     move_t ttMove{}; // initially ttMove is null
 
@@ -495,7 +498,39 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
         return ttScore;
     }
 
-    int best = INF;
+    // check for timeout only after checking if we can prune the node (return from the function)
+    if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
+        time_up = true;
+
+    if (time_up) {
+#ifdef DEBUG
+        pv_length[ply] = 0;
+#endif
+        return evaluate();
+    }
+
+    // !!! At this point we know we are not in checkmate / stalemate (we have legal moves) !!!
+
+    if (!is_root && depth_left >= NMP_MIN_DEPTH && null_move_allowed(board)){
+        int reduced_depth = depth_left - 1 - NMP_REDUCTION;
+        if (reduced_depth < 0)
+            reduced_depth = 0;
+        if (board.make_null_move()){
+            int score = alphaBetaMax(alpha, alpha + 1, reduced_depth, false, ply + 1);
+            board.undo_null_move();
+            if (score <= alpha)
+            {
+                return score;
+            }
+        }
+    }
+
+    if (depth_left == 0) {
+#ifdef DEBUG
+        pv_length[ply] = 0;
+#endif
+        return quiesenceSearchMin(alpha, beta, ply);
+    }
 
     std::vector <move_t> legal;
     board.get_legal_moves(legal);
@@ -515,22 +550,18 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
                 break;
             }
 
-    if (legal.empty()) {
-#ifdef SHERIFF_DEBUG_PV
-        pv_length[ply] = 0;
-#endif
-        best = board.in_check(board.history.back().turn) ? MATE_SCORE - ply : 0; // checkmate or stalemate
-    }
-    else if (is_root) {
+    
+    /*if (is_root) {
         root_best_move = legal.front();
-    }
+    }*/
+
     int move_index = 0;
     for (auto& move : legal) {
         bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
         bool do_lmr = !is_root && is_quiet && !in_check && depth_left >= LMR_MIN_DEPTH && move_index >= LMR_FULL_MOVES;
         int score = 0;
 
-#ifdef SHERIFF_DEBUG_PV
+#ifdef DEBUG
         if (ply + 1 < MAX_PLY)
             pv_length[ply + 1] = 0;
 #endif
@@ -555,7 +586,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
             board.undo_move(move);
         }
 
-#ifdef SHERIFF_DEBUG_PV
+#ifdef DEBUG
         if (is_root)
             update_root_lines(*this, move, score, ply, false);
 #endif
@@ -566,7 +597,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
             }
             best = score;
             best_move = move;
-#ifdef SHERIFF_DEBUG_PV
+#ifdef DEBUG
             update_pv(*this, ply, move);
 #endif
             if (score < beta)
@@ -596,7 +627,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
 
 
 
-#ifdef SHERIFF_DEBUG_PV
+#ifdef DEBUG
 void engine_t::log_root_lines() const {
     for (int i = 0; i < 3; ++i){
         const auto& line = root_lines[i];

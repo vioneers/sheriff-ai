@@ -14,7 +14,7 @@ struct engine_t {
     uint16_t killer_moves[MAX_PLY][2]{};
     int history_table[64][64]{};
 
-#ifdef SHERIFF_DEBUG_PV
+#ifdef DEBUG
     move_t pv_moves[MAX_PLY][MAX_PLY]{};
     int pv_length[MAX_PLY]{};
 
@@ -48,7 +48,7 @@ struct engine_t {
     // call move_order_score and set move.score for all move in moves
     void score_moves(std::vector<move_t> &moves, int ply);
 
-#ifdef SHERIFF_DEBUG_PV
+#ifdef DEBUG
     void log_root_lines() const;
 #endif
 

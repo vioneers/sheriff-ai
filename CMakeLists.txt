@@ -3,8 +3,6 @@ project(Sheriff-AI LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 
-option(SHERIFF_DEBUG_PV "Enable root PV debug logging" OFF)
-
 if(UNIX)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,stack-size=60000000")
 elseif(MSVC)
@@ -55,16 +53,17 @@ add_executable(sheriff_ai_perft
     ${ENGINE_SOURCES}
 )
 
+add_executable(random_game
+    src/random_game.cpp
+    ${ENGINE_SOURCES}
+)
+
 
 
 add_compile_definitions(
 	    # If the debug configuration pass the DEBUG define to the compiler
         $<$<CONFIG:Debug>:DEBUG>
 )
-
-if(SHERIFF_DEBUG_PV)
-    add_compile_definitions(SHERIFF_DEBUG_PV)
-endif()
 
 # use 
 # cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug

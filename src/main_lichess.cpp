@@ -34,7 +34,7 @@ static string compute_bestmove(const vector<move_t>& move_hist, const string& fe
 
     if(engine.root_best_move.is_null())
         return "0000"; // UCI “no move” sentinel for terminal nodes
-#ifdef SHERIFF_DEBUG_PV
+#ifdef DEBUG
     engine.log_root_lines();
 #endif
     return engine.root_best_move.to_code();

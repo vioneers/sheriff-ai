@@ -33,6 +33,7 @@ struct board_t {
 	// check detection
 	bool square_attacked(int sq, Color by_color) const;
 	bool in_check(Color by_color) const;
+	bool in_stalemate(); // quickly checks if the player to move has any legal moves (faster than generating all legal moves)
 
 	// generate legal moves for the side to move and add to list
 	void get_legal_moves(std::vector<move_t> &list);

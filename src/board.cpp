@@ -702,6 +702,49 @@ bool board_t::in_check(Color color) const
 	return square_attacked(king_sq, ~color);
 }
 
+bool board_t::in_stalemate()
+{
+	std::vector<move_t> pseudo;
+	pseudo.reserve(128);
+
+	Color Us = history.back().turn;
+
+	if (Us == WHITE) {
+		generate_pawn_moves<WHITE>(pseudo);
+		generate_knight_moves<WHITE>(pseudo);
+		generate_bishop_moves<WHITE>(pseudo);
+		generate_rook_moves<WHITE>(pseudo);
+		generate_queen_moves<WHITE>(pseudo);
+		generate_king_moves<WHITE>(pseudo);
+	}
+	else {
+		generate_pawn_moves<BLACK>(pseudo);
+		generate_knight_moves<BLACK>(pseudo);
+		generate_bishop_moves<BLACK>(pseudo);
+		generate_rook_moves<BLACK>(pseudo);
+		generate_queen_moves<BLACK>(pseudo);
+		generate_king_moves<BLACK>(pseudo);
+	}
+
+	bool found_legal_move = false;
+
+	for (const auto& move : pseudo)
+	{
+		if (!make_move(move))
+			continue;
+
+		if (!in_check(Us))
+			found_legal_move = true;
+
+		undo_move(move);
+
+		if (found_legal_move)
+			break;
+	}
+
+	return !found_legal_move;
+}
+
 void board_t::add_move(std::vector<move_t> &list, move_t move)
 {
 	Color us = history.empty() ? WHITE : history.back().turn;
