@@ -3,7 +3,11 @@ project(Sheriff-AI LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 
-if(UNIX)
+if(APPLE)
+    # ld64 uses -stack_size (hex bytes) instead of GNU ld's -z stack-size.
+    # 60,014,592 bytes aligns to 16KB segments.
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-stack_size,0x393c000")
+elseif(UNIX)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,stack-size=60000000")
 elseif(MSVC)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:30000000")
