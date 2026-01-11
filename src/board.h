@@ -58,7 +58,7 @@ struct board_t {
     void undo_null_move();
 	
 	uint64_t compute_key(); //Zobrist key for threefold repretition tracking
-	bool is_threefold() const;
+	bool is_repetition(int cnt_rep) const;
 	// other utils
 	std::string to_fen() const;
 };

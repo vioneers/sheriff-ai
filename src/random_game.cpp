@@ -134,7 +134,7 @@ void save_game_log(engine_t& engine, Color Us, int game_id, std::string folder, 
 		else
 			outfile << "stalemate" << '\n';
 	} 
-	else if (engine.board.is_threefold())
+	else if (engine.board.is_repetition(3))
 	{
 		outfile << "draw (threefold repetition)" << '\n';
 		final_result = "1/2-1/2";
@@ -170,7 +170,7 @@ void play_against_random(engine_t engine, Color Us, int game_id, std::string fol
 		if ((last_move.flag() & CAPTURE) || (engine.board.mailbox[last_move.to()] == PAWN))
 			fifty_cnt = 100;
 
-		if (engine.board.is_threefold() || fifty_cnt <= 0)
+		if (engine.board.is_repetition(3) || fifty_cnt <= 0)
 			break;
 	}
 
@@ -204,7 +204,7 @@ int main(int argc, char* argv[])
 	vector<move_t> move_hist;
 	engine_t engine(move_hist);
 	// id2 - id1 games
-	run_multithreaded_games(0, 50, engine, WHITE);
+	run_multithreaded_games(0, 5, engine, WHITE);
 
 	return 0;
 }

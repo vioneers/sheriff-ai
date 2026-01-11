@@ -565,11 +565,11 @@ uint64_t board_t::compute_key(){
 	return key;
 }
 
-bool board_t::is_threefold() const{
+bool board_t::is_repetition(int cnt_rep) const{
 	if (history.empty())
 		return false;
 	auto it = repetition_count.find(history.back().z_key);
-    return it != repetition_count.end() && it->second >= 3;
+    return it != repetition_count.end() && it->second >= cnt_rep;
 }
 
 // Other utilities

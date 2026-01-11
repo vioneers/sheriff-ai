@@ -150,9 +150,20 @@ engine_t::engine_t(const std::vector<move_t> &move_hist){
     // openings.init_lookup_table();
 };
 
-// temporary
 int engine_t::evaluate(){
-	return evaluate_board(&board);
+    int eval = evaluate_board(&board);
+    int Us = ~board.history.back().turn; // from what perspective we evaluate
+
+    int sign = Us == WHITE ? 1 : -1; 
+
+    // if in winning position => penalize repetitions
+    // if White: check eval > 200
+    // if Black: check -eval > 200, so eval < -200
+    if (sign * eval > 200 && board.is_repetition(2) && eval != MATE_SCORE)
+        eval -= sign * 50;
+        
+    return eval;
+    
 }
 
 int engine_t::quiesenceSearchMax(int alpha, int beta, int ply){
@@ -162,7 +173,7 @@ int engine_t::quiesenceSearchMax(int alpha, int beta, int ply){
     int stand_pat = evaluate();
     if(time_up)
         return stand_pat;
-    if(board.is_threefold())
+    if(board.is_repetition(3))
         return 0;
 
     if (stand_pat >= beta)
@@ -215,7 +226,7 @@ int engine_t::quiesenceSearchMin(int alpha, int beta, int ply){
     int stand_pat = evaluate();
     if(time_up)
         return stand_pat;
-    if(board.is_threefold())
+    if(board.is_repetition(3))
         return 0;
 
     if (stand_pat <= alpha)
@@ -301,7 +312,7 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
     }
 
     // check for threefold before timout just in case we can get a more acurate score
-    if (board.is_threefold())
+    if (board.is_repetition(3))
         return 0;
 
     // check TT before starting the search
@@ -483,7 +494,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
     }
 
     // check for threefold before timout just in case we can get a more acurate score
-    if (board.is_threefold())
+    if (board.is_repetition(3))
         return 0;
 
     // check TT before starting the search
