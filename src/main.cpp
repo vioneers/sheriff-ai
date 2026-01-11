@@ -63,4 +63,4 @@ int main(int argc, char* argv[])
 
 // FOR DEBUGGING: "cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build --config Debug"
 
-// Run with "./build/sheriff-ai -H input.txt -m output.txt"
+// Run with "./build/sheriff_ai -H input.txt -m output.txt"
