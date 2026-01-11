@@ -90,13 +90,7 @@ move_t play_our_bot(engine_t& engine)
 
 	engine.root_best_move = move_t{}; // engine assumes it starts with null move
 
-	// if playing White, you are maximizing, else minimize
-	int score = 0;
-	Color turn = engine.board.history.back().turn;
-	if (turn == WHITE)
-		score = engine.alphaBetaMax(-1e9, 1e9, engine_t::DEFAULT_SEARCH_DEPTH);
-	else
-		score = engine.alphaBetaMin(-1e9, 1e9, engine_t::DEFAULT_SEARCH_DEPTH);
+	engine.get_best_move();
 
 	return engine.root_best_move;
 }
@@ -204,7 +198,7 @@ int main(int argc, char* argv[])
 	vector<move_t> move_hist;
 	engine_t engine(move_hist);
 	// id2 - id1 games
-	run_multithreaded_games(0, 5, engine, WHITE);
+	run_multithreaded_games(0, 1, engine, WHITE);
 
 	return 0;
 }

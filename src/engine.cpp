@@ -327,6 +327,11 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
         return ttScore;
     }
 
+    // if we already searched this position with another depth (from Iterative Deepening), 
+    // start from the best move found then
+    if(is_root && !root_best_move.is_null())
+        ttMove = root_best_move;
+
     // check for timeout only after checking if we can prune the node (return from the function)
     if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
         time_up = true;
@@ -509,6 +514,11 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
         return ttScore;
     }
 
+    // if we already searched this position with another depth (from Iterative Deepening), 
+    // start from the best move found then
+    if(is_root && !root_best_move.is_null())
+        ttMove = root_best_move;
+
     // check for timeout only after checking if we can prune the node (return from the function)
     if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
         time_up = true;
@@ -636,7 +646,23 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
     return best;
 }
 
+void engine_t::get_best_move(){ // with Iterative Deepening
+    using clock = std::chrono::steady_clock;
+    bool time_up = false;
+    int depth = 1; 
+    do{
+        int score = 0;
+        Color turn = board.history.back().turn;
+        if(turn == WHITE)
+            score = alphaBetaMax(-1e9, 1e9, depth);
+        else
+            score = alphaBetaMin(-1e9, 1e9, depth);
 
+        depth++;
+
+        time_up = time_limit.count() > 0 && clock::now() - start_time > time_limit;
+    } while (!time_up && depth < DEFAULT_SEARCH_DEPTH);
+}
 
 #ifdef DEBUG
 void engine_t::log_root_lines() const {

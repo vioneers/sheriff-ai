@@ -26,11 +26,7 @@ static string compute_bestmove(const vector<move_t>& move_hist, const string& fe
     engine.time_limit = std::chrono::milliseconds(9500); // ~9.5 seconds
     engine.time_up = false;
 
-    Color turn = engine.board.history.back().turn;
-    if (turn == WHITE)
-        engine.alphaBetaMax(-1e9, 1e9, engine_t::DEFAULT_SEARCH_DEPTH);
-    else
-        engine.alphaBetaMin(-1e9, 1e9, engine_t::DEFAULT_SEARCH_DEPTH);
+    engine.get_best_move();
 
     if(engine.root_best_move.is_null())
         return "0000"; // UCI “no move” sentinel for terminal nodes

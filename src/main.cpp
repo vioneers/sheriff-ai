@@ -38,14 +38,7 @@ int main(int argc, char* argv[])
 	engine.time_limit = std::chrono::milliseconds(9500);  // ~9.5 seconds
 	engine.time_up = false;
 
-	// if playing White, you are maximizing, else minimize
-    int score = 0;
-    Color turn = engine.board.history.back().turn;
-	if(turn == WHITE)
-		score = engine.alphaBetaMax(-1e9, 1e9, engine_t::DEFAULT_SEARCH_DEPTH);
-	else
-		score = engine.alphaBetaMin(-1e9, 1e9, engine_t::DEFAULT_SEARCH_DEPTH);
-    // cout << score;
+    engine.get_best_move();
 
     if(engine.root_best_move.is_null()){
         std::ofstream outFile(out_file_name);
