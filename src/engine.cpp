@@ -354,6 +354,7 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
             board.undo_null_move();
             if (score >= beta)
             {
+                TTstore(z_key, beta, depth_left, ply, alphaOrig, beta, move_t{}); // store beta, not score
                 return score;
             }
         }
@@ -541,6 +542,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
             board.undo_null_move();
             if (score <= alpha)
             {
+                TTstore(z_key, beta, depth_left, ply, alpha, betaOrig, move_t{}); // store beta, not score
                 return score;
             }
         }
