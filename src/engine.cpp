@@ -648,7 +648,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
     return best;
 }
 
-void engine_t::get_best_move(){ // with Iterative Deepening
+move_t engine_t::get_best_move(){ // with Iterative Deepening
     using clock = std::chrono::steady_clock;
     bool time_up = false;
     int depth = 1; 
@@ -660,10 +660,25 @@ void engine_t::get_best_move(){ // with Iterative Deepening
         else
             score = alphaBetaMin(-1e9, 1e9, depth);
 
-        depth++;
+        iterative_best_move = root_best_move;
 
         time_up = time_limit.count() > 0 && clock::now() - start_time > time_limit;
+
+        if(!time_up)
+        {
+            iterative_best_move = root_best_move;
+#ifdef DEBUG
+            std::cout << "finished depth " << depth << "\n";
+            log_root_lines();
+            std::cout << "\n";
+#endif
+        }
+
+        depth++;
+        
     } while (!time_up && depth < DEFAULT_SEARCH_DEPTH);
+
+    return iterative_best_move;
 }
 
 #ifdef DEBUG

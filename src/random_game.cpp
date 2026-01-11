@@ -88,11 +88,9 @@ move_t play_our_bot(engine_t& engine)
 	engine.time_limit = std::chrono::milliseconds(9500);  // ~9.5 seconds
 	engine.time_up = false;
 
-	engine.root_best_move = move_t{}; // engine assumes it starts with null move
+	move_t best_move = engine.get_best_move();
 
-	engine.get_best_move();
-
-	return engine.root_best_move;
+	return best_move;
 }
 
 void save_game_log(engine_t& engine, Color Us, int game_id, std::string folder, vector<move_t>& game_history, int fifty_cnt)
@@ -198,7 +196,7 @@ int main(int argc, char* argv[])
 	vector<move_t> move_hist;
 	engine_t engine(move_hist);
 	// id2 - id1 games
-	run_multithreaded_games(0, 1, engine, WHITE);
+	run_multithreaded_games(0, 50, engine, WHITE);
 
 	return 0;
 }

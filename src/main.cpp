@@ -38,22 +38,19 @@ int main(int argc, char* argv[])
 	engine.time_limit = std::chrono::milliseconds(9500);  // ~9.5 seconds
 	engine.time_up = false;
 
-    engine.get_best_move();
+    move_t best_move = engine.get_best_move();
 
-    if(engine.root_best_move.is_null()){
+    if(best_move.is_null()){
         std::ofstream outFile(out_file_name);
         outFile.close(); // leave empty to signal no legal moves
         return 0;
     }
-#ifdef DEBUG
-    engine.log_root_lines();
-#endif
 
 #ifdef DEBUG
 	print_debug_info(engine);
 #endif
 
-	write_move(engine.root_best_move, out_file_name);
+	write_move(best_move, out_file_name);
 
     return 0;
 }

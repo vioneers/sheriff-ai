@@ -26,14 +26,14 @@ static string compute_bestmove(const vector<move_t>& move_hist, const string& fe
     engine.time_limit = std::chrono::milliseconds(9500); // ~9.5 seconds
     engine.time_up = false;
 
-    engine.get_best_move();
+    move_t best_move = engine.get_best_move();
 
-    if(engine.root_best_move.is_null())
+    if(best_move.is_null())
         return "0000"; // UCI “no move” sentinel for terminal nodes
 #ifdef DEBUG
-    engine.log_root_lines();
+    //engine.log_root_lines();
 #endif
-    return engine.root_best_move.to_code();
+    return best_move.to_code();
 }
 
 int main() {

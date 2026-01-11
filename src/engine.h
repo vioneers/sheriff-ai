@@ -7,7 +7,8 @@ constexpr int MATE_SCORE = 1000000; // needed for TT
 
 struct engine_t {
 	board_t board; 	
-    move_t root_best_move;
+    move_t root_best_move; // best move over the possibly unfinished search
+    move_t iterative_best_move; // best move over a completed search up to a certain depth
 
     static constexpr int MAX_PLY = 64;
     static constexpr int DEFAULT_SEARCH_DEPTH = 20; // increased because we have iterative deepening, so this is just an absolute max (will stop when out of time)
@@ -42,7 +43,7 @@ struct engine_t {
     int quiesenceSearchMin(int alpha, int beta, int ply);
     int alphaBetaMax(int alpha, int beta, int depth_left, bool is_root = true, int ply = 0);
     int alphaBetaMin(int alpha, int beta, int depth_left, bool is_root = true, int ply = 0);
-    void get_best_move(); // wrapper for AlphaBeta with Iterative Deepening
+    move_t get_best_move(); // wrapper for AlphaBeta with Iterative Deepening
 
     int move_order_score(const move_t& m, int ply);
     
