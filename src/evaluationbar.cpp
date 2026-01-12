@@ -169,23 +169,28 @@ static int eval_passed_pawns(board_t* board) {
     return score;
 }
 
+static int confinement(int k){ 
+    int r = k / 8, f = k & 7;
+    int edge = std::min({r, 7 - r, f, 7 - f}); // distance to edge
+
+    return (3 - edge) * 40;
+}
+
 static int eval_king_confinement(board_t* board) {
     if (phase(board) > 0.4) return 0;
 
-    int k = -1;
-    bool black = false;
+    int wk = -1, bk = -1;
     for (int i = 0; i < 64; i++) {
-        if (board->mailbox[i] == KING &&
-            ((board->occupancy[BLACK] >> i) & 1ULL)) {
-            k = i; black = true;
+        if (board->mailbox[i] == KING){ 
+            if ((board->occupancy[BLACK] >> i) & 1ULL)
+                bk = i; // black king
+            else 
+                wk = i; // white king
         }
     }
-    if (k == -1) return 0;
+    if (wk == -1 || bk == -1) return 0;
 
-    int r = k / 8, f = k & 7;
-    int edge = std::min({r, 7 - r, f, 7 - f});
-
-    return (3 - edge) * (black ? -40 : 40);
+    return confinement(bk) - confinement(wk);
 }
 
 
