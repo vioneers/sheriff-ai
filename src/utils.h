@@ -5,6 +5,7 @@
 #include <tuple>
 #include <sstream>
 #include <fstream>
+#include <iostream>
 
 #include "move.h"
 #include "engine.h"
@@ -88,20 +89,3 @@ void append_moves_from_tokens(vector<move_t>& moves, const vector<string>& token
     }
 }
 
-#ifdef DEBUG
-void print_debug_info(engine_t& engine)
-{
-	using clock = std::chrono::steady_clock;
-	auto elapsed = clock::now() - engine.start_time;
-
-	cout << engine.board.to_fen() << '\n';
-	cout << '\n';
-	cout << "running time : "
-     << std::chrono::duration<double>(elapsed).count()
-     << " s\n";
-	cout << '\n';
-	cout << "TT_PROBES : " << engine.TT_PROBES << '\n';
-	cout << "TT_HITS : " << engine.TT_HITS << '\n';
-	cout << "TT_CUTOFFS : " << engine.TT_CUTOFFS << '\n';
-}
-#endif

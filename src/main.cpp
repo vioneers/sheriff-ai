@@ -46,10 +46,6 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-#ifdef DEBUG
-	print_debug_info(engine);
-#endif
-
 	write_move(best_move, out_file_name);
 
     return 0;

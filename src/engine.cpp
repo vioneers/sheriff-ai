@@ -170,11 +170,14 @@ int engine_t::quiesenceSearchMax(int alpha, int beta, int ply){
     using clock = std::chrono::steady_clock;
     if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
         time_up = true;
-    int stand_pat = evaluate();
+    
     if(time_up)
-        return stand_pat;
+        return 0;
+
     if(board.is_repetition(3))
         return 0;
+
+    int stand_pat = evaluate();
 
     if (stand_pat >= beta)
         return beta;
@@ -183,6 +186,7 @@ int engine_t::quiesenceSearchMax(int alpha, int beta, int ply){
 
     std::vector<move_t> legal; 
     board.get_legal_moves(legal); 
+    
     bool is_check = board.in_check(board.history.back().turn);
     if (!is_check){
         // keep only captures and promotions if not in check
@@ -211,6 +215,9 @@ int engine_t::quiesenceSearchMax(int alpha, int beta, int ply){
         int score = quiesenceSearchMin(best, beta, ply + 1);
         board.undo_move(move);
 
+        if (time_up)
+            return 0;
+
         if (score >= beta)
             return beta;
         if (score > best)
@@ -223,11 +230,14 @@ int engine_t::quiesenceSearchMin(int alpha, int beta, int ply){
     using clock = std::chrono::steady_clock;
     if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
         time_up = true;
-    int stand_pat = evaluate();
+    
     if(time_up)
-        return stand_pat;
+        return 0;
+
     if(board.is_repetition(3))
         return 0;
+
+    int stand_pat = evaluate();
 
     if (stand_pat <= alpha)
         return alpha;
@@ -236,6 +246,7 @@ int engine_t::quiesenceSearchMin(int alpha, int beta, int ply){
 
     std::vector<move_t> legal; 
     board.get_legal_moves(legal); 
+
     bool is_check = board.in_check(board.history.back().turn);
     if (!is_check){
         // keep only captures and promotions if not in check
@@ -264,6 +275,9 @@ int engine_t::quiesenceSearchMin(int alpha, int beta, int ply){
         int score = quiesenceSearchMax(alpha, best, ply + 1);
         board.undo_move(move);
 
+        if (time_up)
+            return 0;
+
         if (score <= alpha)
             return alpha;
         if (score < best)
@@ -276,6 +290,17 @@ int engine_t::quiesenceSearchMin(int alpha, int beta, int ply){
 
 int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, int ply) {
     using clock = std::chrono::steady_clock;
+
+    // check for timeout
+    if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
+        time_up = true;
+
+    if (time_up) {
+#ifdef DEBUG
+        pv_length[ply] = 0;
+#endif
+        return 0; // we dont care about return, just abort
+    }
 
     // parameters for this node (call of the function)
     move_t best_move{}; // initialy the null move
@@ -332,17 +357,6 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
     if(is_root && !root_best_move.is_null())
         ttMove = root_best_move;
 
-    // check for timeout only after checking if we can prune the node (return from the function)
-    if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
-        time_up = true;
-
-    if (time_up) {
-#ifdef DEBUG
-        pv_length[ply] = 0;
-#endif
-        return evaluate();
-    }
-
     // !!! At this point we know we are not in checkmate / stalemate (we have legal moves) !!!
 
     if (!is_root && depth_left >= NMP_MIN_DEPTH && null_move_allowed(board)){
@@ -352,6 +366,14 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
         if (board.make_null_move()){
             int score = alphaBetaMin(beta - 1, beta, reduced_depth, false, ply + 1);
             board.undo_null_move();
+            
+            if (time_up) {
+#ifdef DEBUG
+                pv_length[ply] = 0;
+#endif
+                return 0; // do not use score if time is up
+            }
+            
             if (score >= beta)
             {
                 TTstore(z_key, beta, depth_left, ply, alphaOrig, beta, move_t{}); // store beta, not score
@@ -421,6 +443,13 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
             board.undo_move(move);
         }
 
+        if (time_up) {
+        #ifdef DEBUG
+            pv_length[ply] = 0;
+        #endif
+            return 0; // do not use scores if time is up
+        }
+
 #ifdef DEBUG
         if (is_root)
             update_root_lines(*this, move, score, ply, true);
@@ -465,6 +494,17 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
 int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, int ply) {
     using clock = std::chrono::steady_clock;
 
+    // check for timeout
+    if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
+        time_up = true;
+
+    if (time_up) {
+#ifdef DEBUG
+        pv_length[ply] = 0;
+#endif
+        return 0; // we dont care about return, just abort
+    }
+
     // parameters for this node (call of the function)
     move_t best_move{}; // initialy the null move
     int best = INF;
@@ -490,6 +530,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
 #ifdef DEBUG
         pv_length[ply] = 0;
 #endif
+
         if (is_root) // if we are at root and in stalemate we have lost 
             root_best_move = move_t{};
 
@@ -520,17 +561,6 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
     if(is_root && !root_best_move.is_null())
         ttMove = root_best_move;
 
-    // check for timeout only after checking if we can prune the node (return from the function)
-    if (!time_up && time_limit.count() > 0 && clock::now() - start_time > time_limit)
-        time_up = true;
-
-    if (time_up) {
-#ifdef DEBUG
-        pv_length[ply] = 0;
-#endif
-        return evaluate();
-    }
-
     // !!! At this point we know we are not in checkmate / stalemate (we have legal moves) !!!
 
     if (!is_root && depth_left >= NMP_MIN_DEPTH && null_move_allowed(board)){
@@ -540,6 +570,14 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
         if (board.make_null_move()){
             int score = alphaBetaMax(alpha, alpha + 1, reduced_depth, false, ply + 1);
             board.undo_null_move();
+            
+            if (time_up) {
+#ifdef DEBUG
+                pv_length[ply] = 0;
+#endif
+                return 0; // do not use score if time is up
+            }
+            
             if (score <= alpha)
             {
                 TTstore(z_key, beta, depth_left, ply, alpha, betaOrig, move_t{}); // store beta, not score
@@ -609,6 +647,13 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
             board.undo_move(move);
         }
 
+        if (time_up) {
+        #ifdef DEBUG
+            pv_length[ply] = 0;
+        #endif
+            return 0; // do not use scores if time is up
+        }
+
 #ifdef DEBUG
         if (is_root)
             update_root_lines(*this, move, score, ply, false);
@@ -650,8 +695,8 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
 
 move_t engine_t::get_best_move(){ // with Iterative Deepening
     using clock = std::chrono::steady_clock;
-    bool time_up = false;
     int depth = 1; 
+
     do{
         int score = 0;
         Color turn = board.history.back().turn;
@@ -660,10 +705,6 @@ move_t engine_t::get_best_move(){ // with Iterative Deepening
         else
             score = alphaBetaMin(-1e9, 1e9, depth);
 
-        iterative_best_move = root_best_move;
-
-        time_up = time_limit.count() > 0 && clock::now() - start_time > time_limit;
-
         if(!time_up)
         {
             iterative_best_move = root_best_move;
@@ -671,6 +712,10 @@ move_t engine_t::get_best_move(){ // with Iterative Deepening
             std::cout << "finished depth " << depth << "\n";
             log_root_lines();
             std::cout << "\n";
+            print_debug_info();
+            std::cout << "\n";
+
+            TT_PROBES = TT_HITS = TT_CUTOFFS = 0;
 #endif
         }
 
@@ -693,4 +738,22 @@ void engine_t::log_root_lines() const {
         std::cout << '\n';
     }
 }
+
+#ifdef DEBUG
+void engine_t::print_debug_info() const
+{
+    using clock = std::chrono::steady_clock;
+    auto elapsed = clock::now() - start_time;
+
+    std::cout << board.to_fen() << '\n';
+    std::cout << '\n';
+    std::cout << "running time : "
+        << std::chrono::duration<double>(elapsed).count()
+        << " s\n";
+    std::cout << '\n';
+    std::cout << "TT_PROBES : " << TT_PROBES << '\n';
+    std::cout << "TT_HITS : " << TT_HITS << '\n';
+    std::cout << "TT_CUTOFFS : " << TT_CUTOFFS << '\n';
+}
+#endif
 #endif

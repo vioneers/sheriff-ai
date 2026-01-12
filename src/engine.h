@@ -52,6 +52,7 @@ struct engine_t {
 
 #ifdef DEBUG
     void log_root_lines() const;
+    void print_debug_info() const;
 #endif
 
     // transposition table (TT)

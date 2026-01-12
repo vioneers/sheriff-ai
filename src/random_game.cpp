@@ -196,7 +196,7 @@ int main(int argc, char* argv[])
 	vector<move_t> move_hist;
 	engine_t engine(move_hist);
 	// id2 - id1 games
-	run_multithreaded_games(0, 50, engine, WHITE);
+	run_multithreaded_games(0, 1, engine, WHITE);
 
 	return 0;
 }

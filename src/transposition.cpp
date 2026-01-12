@@ -7,7 +7,7 @@ engine_t::TTentry& engine_t::TTprobe(uint64_t z_key)
 	TT_PROBES++;
 #endif
 
-	return TT[z_key & (TT_SIZE - 1)];
+	return TT[z_key & ((1<<TT_SIZE) - 1)];
 }
 
 void engine_t::TTstore(
@@ -33,16 +33,16 @@ void engine_t::TTstore(
 
     // determine node (bound) type
     NodeType node_type;
-    if (score < alpha)
+    if (score <= alpha)
         node_type = UPPER_BOUND;
-    else if (score > beta)
+    else if (score >= beta)
         node_type = LOWER_BOUND;
     else
         node_type = EXACT;
 
     // replace the node that is in TT if collision
     // for now use depth TODO: implement better strategies
-    if (e.key == 0 || e.depth_left <= depth_left)
+    if (e.key == 0 || e.depth_left < depth_left || (e.depth_left == depth_left && node_type == EXACT))
     {
         e.key = z_key;
         e.depth_left = depth_left;
@@ -70,6 +70,10 @@ bool engine_t::checkTT(                   // check if we can use info from the T
     TT_HITS++;
 #endif
 
+    // allow shalower nodes to influence ordering but not cutoff
+    if (!outMove.is_null() && e.depth_left >= depth_left - 1)
+        outMove = e.bestMove;
+
     // if entry has been searched for less depth than we currently have left we disregard it
     if (e.depth_left < depth_left)
         return false;
@@ -83,20 +87,18 @@ bool engine_t::checkTT(                   // check if we can use info from the T
             e.score += ply;
     }
 
-    if (!outMove.is_null())
-        outMove = e.bestMove;
-
     if (e.node_type == EXACT) {
         outScore = e.score;
         return true;
     }
 
-    if (e.node_type == LOWER_BOUND && e.score >= beta) {
+    // only apply bound refutations if the bounds are good (high enough search depth)
+    if (e.node_type == LOWER_BOUND && e.score >= beta && e.depth_left >= depth_left) {
         outScore = e.score;
         return true;  // fail high
     }
 
-    if (e.node_type == UPPER_BOUND && e.score <= alpha) {
+    if (e.node_type == UPPER_BOUND && e.score <= alpha && e.depth_left >= depth_left) {
         outScore = e.score;
         return true;  // fail low
     }
