@@ -159,7 +159,8 @@ int engine_t::evaluate(){
     // if in winning position => penalize repetitions
     // if White: check eval > 200
     // if Black: check -eval > 200, so eval < -200
-    if (sign * eval > 200 && board.is_repetition(2) && eval != MATE_SCORE)
+    // changed to have abs(eval) - margin because mate is +/-(MATE_SCORE - ply)
+    if (sign * eval > 200 && board.is_repetition(2) && !(std::abs(eval) >= MATE_SCORE - 1000))
         eval -= sign * 50;
         
     return eval;
