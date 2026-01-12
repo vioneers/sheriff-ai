@@ -92,16 +92,16 @@ bool engine_t::checkTT(                   // check if we can use info from the T
         return true;
     }
 
-    // only apply bound refutations if the bounds are good (high enough search depth)
-    if (e.node_type == LOWER_BOUND && e.score >= beta && e.depth_left >= depth_left) {
-        outScore = e.score;
-        return true;  // fail high
-    }
+    // // only apply bound refutations if the bounds are good (high enough search depth)
+    // if (e.node_type == LOWER_BOUND && e.score >= beta && e.depth_left >= depth_left) {
+    //     outScore = e.score;
+    //     return true;  // fail high
+    // }
 
-    if (e.node_type == UPPER_BOUND && e.score <= alpha && e.depth_left >= depth_left) {
-        outScore = e.score;
-        return true;  // fail low
-    }
+    // if (e.node_type == UPPER_BOUND && e.score <= alpha && e.depth_left >= depth_left) {
+    //     outScore = e.score;
+    //     return true;  // fail low
+    // }
 
     return false;
 }
