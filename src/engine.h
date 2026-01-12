@@ -11,7 +11,7 @@ struct engine_t {
     move_t iterative_best_move; // best move over a completed search up to a certain depth
 
     static constexpr int MAX_PLY = 64;
-    static constexpr int DEFAULT_SEARCH_DEPTH = 20; // increased because we have iterative deepening, so this is just an absolute max (will stop when out of time)
+    static constexpr int DEFAULT_SEARCH_DEPTH = 1000; // increased because we have iterative deepening, so this is just an absolute max (will stop when out of time)
     uint16_t killer_moves[MAX_PLY][2]{};
     int history_table[64][64]{};
 
