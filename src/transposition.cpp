@@ -71,37 +71,34 @@ bool engine_t::checkTT(                   // check if we can use info from the T
 #endif
 
     // allow shalower nodes to influence ordering but not cutoff
-    if (!outMove.is_null() && e.depth_left >= depth_left - 1)
-        outMove = e.bestMove;
+    if (outMove.is_null() && !e.bestMove.is_null() && e.depth_left >= depth_left - 1)
+    outMove = e.bestMove;
 
     // if entry has been searched for less depth than we currently have left we disregard it
     if (e.depth_left < depth_left)
         return false;
 
     // add / remove the current ply / depth if dealing with a mate score
-    if (std::abs(e.score) >= MATE_SCORE - MAX_PLY)
-    {
-        if (e.score > 0)
-            e.score -= ply;
-        else
-            e.score += ply;
+    int ttScore = e.score;
+    if (std::abs(ttScore) >= MATE_SCORE - MAX_PLY) {
+        if (ttScore > 0) ttScore -= ply;
+        else             ttScore += ply;
     }
 
     if (e.node_type == EXACT) {
-        outScore = e.score;
+        outScore = ttScore;
         return true;
     }
 
-    // // only apply bound refutations if the bounds are good (high enough search depth)
-    // if (e.node_type == LOWER_BOUND && e.score >= beta && e.depth_left >= depth_left) {
-    //     outScore = e.score;
-    //     return true;  // fail high
-    // }
-
-    // if (e.node_type == UPPER_BOUND && e.score <= alpha && e.depth_left >= depth_left) {
-    //     outScore = e.score;
-    //     return true;  // fail low
-    // }
+    // only apply bound refutations if the bounds are good (high enough search depth)
+    if (e.node_type == LOWER_BOUND && ttScore >= beta) {
+        outScore = ttScore;
+        return true; // fail-high
+    }
+    if (e.node_type == UPPER_BOUND && ttScore <= alpha) {
+        outScore = ttScore;
+        return true; // fail-low
+    }
 
     return false;
 }
