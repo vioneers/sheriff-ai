@@ -38,3 +38,4 @@ Additions :
 to perform well then we perform a full depth search on it.
 - Added null-move pruning, this allows us to 'pass' a move so that we can detect positions that are so strong that they remain
 good even without making a move, if it is so then we prune the branch, allowing us to reduce the search tree.
+- Modified `eval_mobility()` to use bitboards instead of `get_legal_moves()` to count the number of legal moves available for each piece. This is way quicker and helped us increase the depth from 6 to 7 in most cases.

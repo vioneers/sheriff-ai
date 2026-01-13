@@ -1,6 +1,7 @@
 #include "evaluationbar.h"
 #include "board.h"
 #include "move.h"
+#include "bitboard.h"
 
 #include <iostream>
 #include <vector>
@@ -38,10 +39,47 @@ static int eval_material_pst(board_t* board) {
 }
 
 static int eval_mobility(board_t* board) {
-    std::vector<move_t> moves;
     Color turn = board->history.back().turn;
-    board->get_legal_moves(moves);
-    return (turn == WHITE ? 1 : -1) * int(moves.size()) * 4;
+    Bitboard own = board->occupancy[turn];
+    Bitboard occ = board->occupancy[BOTH];
+    int count = 0;
+
+    Bitboard knights = board->pieces[KNIGHT] & own;
+    while (knights) {
+        int sq = pop_lsb(knights);
+        count += std::popcount(KnightAttacks[sq] & ~own);
+    }
+
+    Bitboard bishops = board->pieces[BISHOP] & own;
+    while (bishops) {
+        int sq = pop_lsb(bishops);
+        Bitboard blockers = occ & BishopMask[sq];
+        int hash = apply_magic(blockers, BMagic[sq], BShift[sq]);
+        Bitboard attacks = BishopAttacks[sq][hash];
+        count += std::popcount(attacks & ~own);
+    }
+
+    Bitboard rooks = board->pieces[ROOK] & own;
+    while (rooks) {
+        int sq = pop_lsb(rooks);
+        Bitboard blockers = occ & RookMask[sq];
+        int hash = apply_magic(blockers, RMagic[sq], RShift[sq]);
+        Bitboard attacks = RookAttacks[sq][hash];
+        count += std::popcount(attacks & ~own);
+    }
+
+    Bitboard queens = board->pieces[QUEEN] & own;
+    while (queens) {
+        int sq = pop_lsb(queens);
+        Bitboard rblockers = occ & RookMask[sq];
+        int rhash = apply_magic(rblockers, RMagic[sq], RShift[sq]);
+        Bitboard bblockers = occ & BishopMask[sq];
+        int bhash = apply_magic(bblockers, BMagic[sq], BShift[sq]);
+        Bitboard attacks = RookAttacks[sq][rhash] | BishopAttacks[sq][bhash];
+        count += std::popcount(attacks & ~own);
+    }
+
+    return (turn == WHITE ? 1 : -1) * count * 4;
 }
 
 static int eval_pawn_structure(board_t* board) {

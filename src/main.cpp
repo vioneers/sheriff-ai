@@ -33,7 +33,7 @@ int main(int argc, char* argv[])
 	vector<move_t> move_hist = get_move_history(in_file_name);
 	engine_t engine(move_hist);
 
-	// engine.board = board_t("4kb1r/3npppp/Qq6/2p5/8/8/PPPP1PPP/R1B1K2R w KQk - 1 2");
+	engine.board = board_t("r1b1kb1r/1p1p1ppp/pq2p3/2p1P2n/3n4/2N1BN2/PPP2PPP/1R1QKB1R b Kkq - 2 9");
 	
 	using clock = std::chrono::steady_clock;
 	engine.start_time = clock::now();
