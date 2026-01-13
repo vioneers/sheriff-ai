@@ -37,8 +37,7 @@ static int eval_material_pst(board_t* board) {
     }
     return score;
 }
-
-static int eval_mobility(board_t* board) {
+static int mobility_for (board_t* board, Color c){
     Color turn = board->history.back().turn;
     Bitboard own = board->occupancy[turn];
     Bitboard occ = board->occupancy[BOTH];
@@ -78,8 +77,12 @@ static int eval_mobility(board_t* board) {
         Bitboard attacks = RookAttacks[sq][rhash] | BishopAttacks[sq][bhash];
         count += std::popcount(attacks & ~own);
     }
-
-    return (turn == WHITE ? 1 : -1) * count * 4;
+    return count;
+}
+static int eval_mobility(board_t* board) {
+    int w = mobility_for(board, WHITE);
+    int b = mobility_for(board, BLACK);
+    return (w - b) * 4;
 }
 
 static int eval_pawn_structure(board_t* board) {
