@@ -37,4 +37,4 @@
 ## Week 6
 - Implemented `is_repetition(int cnt_rep)`: checks if the current board has occured cnt_rep times already; used to check threefold and to penalize repetitions (even if only 2) in `evaluate()`
 - Added Iterative Deepening - `get_best_move()`: wrapper for AlphaBeta
-- Fixes done to: `eval_king_confinement()` to consider the white king as well in the scoring; `evaluate()` to use absolute value because mate is +/-(MATE_SCORE - ply)
+- Fixes done to: `eval_king_confinement()` to consider the white king as well in the scoring; `evaluate()` to use absolute value because mate is +/-(MATE_SCORE - ply); `eval_passed_pawns()` to consider direction "in front" according to whether the pawn is black or white

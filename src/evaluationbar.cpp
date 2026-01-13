@@ -189,13 +189,21 @@ static int eval_passed_pawns(board_t* board) {
         int rank = sq / 8;
 
         bool passed = true;
+        int f1 = sq & 7;
+        int r1 = sq / 8;
         for (int i = 0; i < 64; i++) {
             if (board->mailbox[i] != PAWN) continue;
             bool opp = ((board->occupancy[black ? WHITE : BLACK] >> i) & 1ULL);
             if (!opp) continue;
 
-            int f1 = sq & 7, f2 = i & 7;
-            if (std::abs(f1 - f2) <= 1) passed = false;
+            int f2 = i & 7;
+            int r2 = i / 8; 
+            if (std::abs(f1 - f2) > 1) continue;
+            bool pawn_in_front = black ? (r2 < r1) : (r2 > r1); 
+            if(!pawn_in_front)
+                continue;
+            passed = false; 
+            break;
         }
 
         if (!passed) continue;
