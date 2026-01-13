@@ -86,7 +86,7 @@ static void update_root_lines(engine_t& eng, const move_t& move, int score, int 
 }
 #endif
 
-int engine_t::move_order_score(const move_t& m, int ply){
+int engine_t::move_order_score(const move_t& m, int ply, bool winning, bool almost_50_move){
     PieceType mover = board.mailbox[m.from()];
     PieceType target = board.mailbox[m.to()];
     int score = 0;
@@ -133,12 +133,31 @@ int engine_t::move_order_score(const move_t& m, int ply){
         score += history_table[m.from()][m.to()];
     }
 
+    bool is_pawn = (mover == PAWN);
+    bool found_reset = is_capture || is_pawn; // found a capture or pawn move, so 50 move timer would be reset
+    
+    if (winning && almost_50_move && found_reset){
+        score += 6000; // bonus for reset
+        if (is_capture) // bigger extra bonus for capture
+            score += 2000; 
+        if (is_pawn) // extra bonus for pawn (because we can also have pawn capture) 
+            score += 1000;
+    }
+    // if we are losing, we'd prefer the draw so no bonus to do capture/pawn move
     return score;
 }
 
 void engine_t::score_moves(std::vector<move_t> &moves, int ply) {
+    bool almost_50_move = (board.plies_since_irrev() >= 70);
+    int eval = evaluate_board(&board);
+    // haven't made the move yet so don't use ~turn for Us 
+    Color Us = board.history.back().turn; // from what perspective we evaluate
+
+    int sign = Us == WHITE ? 1 : -1; 
+    bool winning = (sign * eval > 200); 
+
     for (auto& move : moves)
-        move.score = move_order_score(move, ply);
+        move.score = move_order_score(move, ply, winning, almost_50_move);
 }
 
 engine_t::engine_t(const std::vector<move_t> &move_hist){
@@ -152,7 +171,7 @@ engine_t::engine_t(const std::vector<move_t> &move_hist){
 
 int engine_t::evaluate(){
     int eval = evaluate_board(&board);
-    int Us = ~board.history.back().turn; // from what perspective we evaluate
+    Color Us = ~board.history.back().turn; // from what perspective we evaluate
 
     int sign = Us == WHITE ? 1 : -1; 
 
@@ -176,6 +195,10 @@ int engine_t::quiesenceSearchMax(int alpha, int beta, int ply){
         return 0;
 
     if(board.is_repetition(3))
+        return 0;
+    
+    // check for 50 move rule draw
+    if (board.plies_since_irrev() >= 100) 
         return 0;
 
     int stand_pat = evaluate();
@@ -236,6 +259,10 @@ int engine_t::quiesenceSearchMin(int alpha, int beta, int ply){
         return 0;
 
     if(board.is_repetition(3))
+        return 0;
+
+    // check for 50 move rule draw
+    if (board.plies_since_irrev() >= 100) 
         return 0;
 
     int stand_pat = evaluate();
@@ -339,6 +366,10 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
 
     // check for threefold before timout just in case we can get a more acurate score
     if (board.is_repetition(3))
+        return 0;
+
+    // check for 50 move rule draw
+    if (board.plies_since_irrev() >= 100) 
         return 0;
 
     // check TT before starting the search
@@ -543,6 +574,10 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
 
     // check for threefold before timout just in case we can get a more acurate score
     if (board.is_repetition(3))
+        return 0;
+
+    // check for 50 move rule draw
+    if (board.plies_since_irrev() >= 100) 
         return 0;
 
     // check TT before starting the search

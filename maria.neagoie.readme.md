@@ -42,3 +42,4 @@
     - `evaluate()` to use absolute value because mate is +/-(MATE_SCORE - ply); 
     - `eval_passed_pawns()` to consider direction "in front" according to whether the pawn is black or white;
     - `eval_mobility()` to return the difference mobility for white - mobility for black instead of just adding a sign for side to move
+- Added a `plies_since_irrev()` method in board -> used to detect 50-move draws in AlphaBeta and Quiesence Search + updated `score_moves()` and `move_order_score()` to give bonus to the score of a capture / pawn move if we are approaching a 50-move and we are in a winning position

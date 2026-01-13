@@ -786,3 +786,7 @@ void board_t::get_legal_moves(std::vector<move_t> &list)
 	for (const auto& move : pseudo)
 		add_move(list, move);
 }
+
+int board_t::plies_since_irrev(){
+	return int(history.size()) - 1 - last_irreversible_index;
+}

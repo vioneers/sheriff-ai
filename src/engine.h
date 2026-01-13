@@ -45,7 +45,7 @@ struct engine_t {
     int alphaBetaMin(int alpha, int beta, int depth_left, bool is_root = true, int ply = 0);
     move_t get_best_move(); // wrapper for AlphaBeta with Iterative Deepening
 
-    int move_order_score(const move_t& m, int ply);
+    int move_order_score(const move_t& m, int ply, bool winning, bool almost_50_move);
     
     // call move_order_score and set move.score for all move in moves
     void score_moves(std::vector<move_t> &moves, int ply);
