@@ -364,7 +364,6 @@ bool board_t::make_move(move_t m){
 
 bool board_t::make_null_move()
 {
-	return false; // disable null move for now
 	if (history.empty())
 		return false;
 

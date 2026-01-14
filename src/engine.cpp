@@ -391,7 +391,7 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
 
     // !!! At this point we know we are not in checkmate / stalemate (we have legal moves) !!!
 
-    if (!is_root && depth_left >= NMP_MIN_DEPTH && null_move_allowed(board)){
+    if (!is_root && !in_check && depth_left >= NMP_MIN_DEPTH && null_move_allowed(board)){
         int reduced_depth = depth_left - 1 - NMP_REDUCTION;
         if (reduced_depth < 0)
             reduced_depth = 0;
@@ -540,6 +540,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
     // parameters for this node (call of the function)
     move_t best_move{}; // initialy the null move
     int best = INF;
+    int alphaOrig = alpha; // store inital alpha (needed for TTstore)
     int betaOrig = beta; // store inital beta (needed for TTstore)
     const uint64_t z_key = board.history.back().z_key;
 
@@ -567,7 +568,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
             root_best_move = move_t{};
 
         best = board.in_check(board.history.back().turn) ? MATE_SCORE - ply : 0; // checkmate or stalemate
-        TTstore(z_key, best, depth_left, ply, betaOrig, beta, best_move);
+        TTstore(z_key, best, depth_left, ply, alphaOrig, betaOrig, best_move);
 
         return best;
     }
@@ -599,7 +600,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
 
     // !!! At this point we know we are not in checkmate / stalemate (we have legal moves) !!!
 
-    if (!is_root && depth_left >= NMP_MIN_DEPTH && null_move_allowed(board)){
+    if (!is_root && !in_check && depth_left >= NMP_MIN_DEPTH && null_move_allowed(board)){
         int reduced_depth = depth_left - 1 - NMP_REDUCTION;
         if (reduced_depth < 0)
             reduced_depth = 0;
@@ -616,7 +617,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
             
             if (score <= alpha)
             {
-                TTstore(z_key, beta, depth_left, ply, alpha, betaOrig, move_t{}); // store beta, not score
+                TTstore(z_key, alpha, depth_left, ply, alphaOrig, betaOrig, move_t{}); 
                 return score;
             }
         }
@@ -724,7 +725,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
         ++move_index;
     }
 
-    TTstore(z_key, best, depth_left, ply, betaOrig, beta, best_move);
+    TTstore(z_key, best, depth_left, ply, alphaOrig, betaOrig, best_move);
 
     return best;
 }
