@@ -46,7 +46,7 @@ static inline bool null_move_allowed(const board_t& b){
 static inline bool lmr_allowed(const move_t& move, bool is_root, bool in_check, int depth_left, int ply, double phase) {
     bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
     bool is_endgame = phase < 0.25;
-    bool do_lmr = !is_root && is_quiet && !in_check && !is_endgame && depth_left >= LMR_MIN_DEPTH && ply >= 3;
+    bool do_lmr = !is_root && is_quiet && !in_check && !is_endgame && depth_left >= LMR_MIN_DEPTH && ply >= 2;
 
     return do_lmr;
 }
@@ -356,22 +356,7 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
 #endif
     }
 
-    // check for stalemate / checkmate before timeout (we might get a free pass on a better score)
     bool in_check = board.in_check(board.history.back().turn);
-    bool in_stalemate = board.in_stalemate();
-    if (in_stalemate)
-    {
-#ifdef DEBUG
-        pv_length[ply] = 0;
-#endif
-        if (is_root) // if we are at root and in stalemate we have lost 
-            root_best_move = move_t{};
-
-        best = board.in_check(board.history.back().turn) ? -MATE_SCORE + ply : 0; // checkmate or stalemate
-        TTstore(z_key, best, depth_left, ply, alphaOrig, beta, best_move);
-        
-        return best;
-    }
 
     // check for threefold before timout just in case we can get a more acurate score
     if (board.is_repetition(3))
@@ -397,8 +382,6 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
     // start from the best move found then
     if(is_root && !root_best_move.is_null())
         ttMove = root_best_move;
-
-    // !!! At this point we know we are not in checkmate / stalemate (we have legal moves) !!!
 
     if (!is_root && !in_check && depth_left >= NMP_MIN_DEPTH && null_move_allowed(board)){
         int reduced_depth = depth_left - 1 - NMP_REDUCTION;
@@ -432,6 +415,18 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
 
     std::vector <move_t> legal;
     board.get_legal_moves(legal);
+
+    if (legal.empty()) {
+#ifdef DEBUG
+        pv_length[ply] = 0;
+#endif
+        if (is_root) // if we are at root and in stalemate we have lost 
+            root_best_move = move_t{};
+
+        best = in_check ? -MATE_SCORE + ply : 0; // checkmate or stalemate
+        TTstore(z_key, best, depth_left, ply, alphaOrig, beta, best_move);
+        return best;
+    }
 
     score_moves(legal, ply);
 
@@ -565,23 +560,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
 #endif
     }
 
-    // check for stalemate / checkmate before timeout (we might get a free pass on a better score)
     bool in_check = board.in_check(board.history.back().turn);
-    bool in_stalemate = board.in_stalemate();
-    if (in_stalemate)
-    {
-#ifdef DEBUG
-        pv_length[ply] = 0;
-#endif
-
-        if (is_root) // if we are at root and in stalemate we have lost 
-            root_best_move = move_t{};
-
-        best = board.in_check(board.history.back().turn) ? MATE_SCORE - ply : 0; // checkmate or stalemate
-        TTstore(z_key, best, depth_left, ply, alphaOrig, betaOrig, best_move);
-
-        return best;
-    }
 
     // check for threefold before timout just in case we can get a more acurate score
     if (board.is_repetition(3))
@@ -607,8 +586,6 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
     // start from the best move found then
     if(is_root && !root_best_move.is_null())
         ttMove = root_best_move;
-
-    // !!! At this point we know we are not in checkmate / stalemate (we have legal moves) !!!
 
     if (!is_root && !in_check && depth_left >= NMP_MIN_DEPTH && null_move_allowed(board)){
         int reduced_depth = depth_left - 1 - NMP_REDUCTION;
@@ -642,6 +619,19 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
 
     std::vector <move_t> legal;
     board.get_legal_moves(legal);
+
+    if (legal.empty()) {
+#ifdef DEBUG
+        pv_length[ply] = 0;
+#endif
+
+        if (is_root) // if we are at root and in stalemate we have lost 
+            root_best_move = move_t{};
+
+        best = in_check ? MATE_SCORE - ply : 0; // checkmate or stalemate
+        TTstore(z_key, best, depth_left, ply, alphaOrig, betaOrig, best_move);
+        return best;
+    }
 
     score_moves(legal, ply);
 
