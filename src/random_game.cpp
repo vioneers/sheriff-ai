@@ -96,6 +96,7 @@ move_t play_our_bot(engine_t& engine)
 void save_game_log(engine_t& engine, Color Us, int game_id, std::string folder, vector<move_t>& game_history, int fifty_cnt)
 {
 	// 1. Create a unique filename for this specific game
+	std::cout << "Game " << std::to_string(game_id) <<" : ";
 	std::string filename = folder + "/game_" + std::to_string(game_id) + ".txt";
 	std::ofstream outfile(filename);
 
@@ -112,8 +113,10 @@ void save_game_log(engine_t& engine, Color Us, int game_id, std::string folder, 
 	for (auto& m : game_history)
 		outfile << m.to_code() << '\n';
 
-	if (engine.board.history.size() >= 300)
+	if (engine.board.history.size() >= 300){
 		outfile << "game timed out" << std::endl;
+		std::cout << "game timed out" << std::endl;
+	}
 	else if (game_history.back().is_null())
 	{
 		Color turn = engine.board.history.back().turn;
@@ -121,18 +124,24 @@ void save_game_log(engine_t& engine, Color Us, int game_id, std::string folder, 
 		
 		final_result = (turn == WHITE) ? "0-1" : "1-0";
 
-		if (engine.board.in_check(turn))
+		if (engine.board.in_check(turn)){
 			outfile << color << " wins!" << '\n';
-		else
+			std::cout << color <<" wins!" << '\n';
+		}
+		else{
 			outfile << "stalemate" << '\n';
+			std::cout << "stalemate" << '\n';
+		}
 	} 
 	else if (engine.board.is_repetition(3))
 	{
 		outfile << "draw (threefold repetition)" << '\n';
+		std::cout << "draw (threefold repetition)" << '\n';
 		final_result = "1/2-1/2";
 	}
 	else if (fifty_cnt <= 0)
 	{
+		std::cout << "draw (fifty-move rule)" << '\n';
 		outfile << "draw (fifty-move rule)" << '\n';
 		final_result = "1/2-1/2";
 	}
@@ -196,7 +205,7 @@ int main(int argc, char* argv[])
 	vector<move_t> move_hist;
 	engine_t engine(move_hist);
 	// id2 - id1 games
-	run_multithreaded_games(0, 1, engine, WHITE);
-
+	run_multithreaded_games(0, 50, engine, WHITE);
+	// run_multithreaded_games(0, 50, engine, BLACK);
 	return 0;
 }
