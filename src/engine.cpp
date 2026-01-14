@@ -36,11 +36,19 @@ static int popcount_bb(Bitboard bb){
     return std::popcount(bb);
 }
 
-static bool null_move_allowed(const board_t& b){
+static inline bool null_move_allowed(const board_t& b){
     int pawns = popcount_bb(b.pieces[PAWN] & b.occupancy[BOTH]);
     int majors = popcount_bb((b.pieces[ROOK] | b.pieces[QUEEN]) & b.occupancy[BOTH]);
     int minors = popcount_bb((b.pieces[KNIGHT] | b.pieces[BISHOP]) & b.occupancy[BOTH]);
     return !(pawns == 0 && majors == 0 && minors <= 2);
+}
+
+static inline bool lmr_allowed(const move_t& move, bool is_root, bool in_check, int depth_left, int ply, double phase) {
+    bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
+    bool is_endgame = phase < 0.25;
+    bool do_lmr = !is_root && is_quiet && !in_check && !is_endgame && depth_left >= LMR_MIN_DEPTH && ply >= 3;
+
+    return do_lmr;
 }
 
 #ifdef DEBUG
@@ -335,6 +343,7 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
     int best = -INF;
     int alphaOrig = alpha; // store inital alpha (needed for TTstore)
     const uint64_t z_key = board.history.back().z_key;
+    double board_phase = phase(board);
 
     if (is_root && ply == 0) {
         std::fill(&killer_moves[0][0], &killer_moves[0][0] + (MAX_PLY * 2), 0);
@@ -447,7 +456,7 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
     int move_index = 0;
     for (auto& move : legal) {
         bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
-        bool do_lmr = !is_root && is_quiet && !in_check && depth_left >= LMR_MIN_DEPTH && move_index >= LMR_FULL_MOVES;
+        bool do_lmr = lmr_allowed(move, is_root, in_check, depth_left, ply, board_phase);
         int score = 0;
 
 #ifdef DEBUG
@@ -543,6 +552,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
     int alphaOrig = alpha; // store inital alpha (needed for TTstore)
     int betaOrig = beta; // store inital beta (needed for TTstore)
     const uint64_t z_key = board.history.back().z_key;
+    double board_phase = phase(board);
 
     if (is_root && ply == 0) {
         std::fill(&killer_moves[0][0], &killer_moves[0][0] + (MAX_PLY * 2), 0);
@@ -656,7 +666,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
     int move_index = 0;
     for (auto& move : legal) {
         bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
-        bool do_lmr = !is_root && is_quiet && !in_check && depth_left >= LMR_MIN_DEPTH && move_index >= LMR_FULL_MOVES;
+        bool do_lmr = lmr_allowed(move, is_root, in_check, depth_left, ply, board_phase);
         int score = 0;
 
 #ifdef DEBUG

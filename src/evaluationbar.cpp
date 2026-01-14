@@ -113,7 +113,7 @@ static int eval_pawn_structure(board_t& board) {
     return score;
 }
 
-static double phase(board_t &board) {
+double phase(const board_t &board) {
     int m = 0;
 
     m += std::popcount(board.pieces[PAWN]);
