@@ -149,7 +149,7 @@ int engine_t::move_order_score(const move_t& m, int ply, bool winning, bool almo
 
 void engine_t::score_moves(std::vector<move_t> &moves, int ply) {
     bool almost_50_move = (board.plies_since_irrev() >= 70);
-    int eval = evaluate_board(&board);
+    int eval = evaluate_board(board);
     // haven't made the move yet so don't use ~turn for Us 
     Color Us = board.history.back().turn; // from what perspective we evaluate
 
@@ -170,7 +170,7 @@ engine_t::engine_t(const std::vector<move_t> &move_hist){
 };
 
 int engine_t::evaluate(){
-    int eval = evaluate_board(&board);
+    int eval = evaluate_board(board);
     Color Us = ~board.history.back().turn; // from what perspective we evaluate
 
     int sign = Us == WHITE ? 1 : -1; 

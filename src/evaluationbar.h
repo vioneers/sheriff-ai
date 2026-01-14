@@ -21,7 +21,7 @@
 #pragma once
 struct board_t;
 // Main evaluation
-int evaluate_board(board_t* board);
+int evaluate_board(board_t& board);
 
 // UI helper
-void print_evaluation_bar(board_t* board);
+void print_evaluation_bar(board_t& board);
