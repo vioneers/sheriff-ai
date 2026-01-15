@@ -24,7 +24,7 @@ const std::vector<std::string> OPENINGS = {
 	// Scotch Game
     "e2e4 e7e5 g1f3 b8c6 d2d4",
 
-    //BEST FOR BLACK
+    /*//BEST FOR BLACK
     // Sicilian Defense
     "e2e4 c7c5",
 	// Nimzo Indian
@@ -44,7 +44,7 @@ const std::vector<std::string> OPENINGS = {
 	// Queen’s Indian Defense
     "d2d4 g8f6 c2c4 e7e6 g1f3 b7b6",
 	// Pseudo King’s Indian
-    "d2d4 g8f6 c2c4 g7g6"
+    "d2d4 g8f6 c2c4 g7g6"*/
 };
 
 void OpeningBook::init_lookup_table(){
@@ -76,7 +76,7 @@ bool OpeningBook::legal_move_uci(board_t& board, std::string& uci, move_t& best_
 
     for(auto& move : legal){
         if(move.to_code() == uci){
-            best_move = uci;
+            best_move = move;
             return true; // the move is legal
         }
     }
@@ -87,8 +87,8 @@ bool OpeningBook::probe(board_t& board, move_t& best_move) const{
     uint64_t curr_key = board.history.back().z_key;
 
     auto it = lookup_table.find(curr_key);
-    best_move = it->second; // (key, move) pairs so move is it->second
     if (it == lookup_table.end()) // we don't have this configuration in the opening book
         return false;
+    best_move = it->second; // (key, move) pairs so move is it->second
     return true;
 }

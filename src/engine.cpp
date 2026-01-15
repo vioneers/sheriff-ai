@@ -10,7 +10,6 @@
 #include "engine.h"
 #include "evaluationbar.h"
 #include "zobrist.h"
-#include "opening_book.h"
 
 constexpr int INF = std::numeric_limits<int>::max();
 constexpr int LMR_FULL_MOVES = 3;
@@ -173,8 +172,7 @@ engine_t::engine_t(const std::vector<move_t> &move_hist){
     init_zobrist();
     board = board_t(move_hist);
     root_best_move = move_t{}; // initialize as null move
-    // OpeningBook openings; not used yet
-    // openings.init_lookup_table();
+    openings.init_lookup_table();
 };
 
 int engine_t::evaluate(){
@@ -728,6 +726,13 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
     TTstore(z_key, best, depth_left, ply, alphaOrig, betaOrig, best_move);
 
     return best;
+}
+move_t engine_t::get_strategy(){ // Play opening or get_best_move
+    move_t best_move;
+    bool found_opening = openings.probe(board,best_move);
+    if (!found_opening)
+        best_move = get_best_move();
+    return best_move;
 }
 
 move_t engine_t::get_best_move(){ // with Iterative Deepening
