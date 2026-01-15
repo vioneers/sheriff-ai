@@ -40,7 +40,8 @@ int main(int argc, char* argv[])
 	engine.time_limit = std::chrono::milliseconds(9500);  // ~9.5 seconds
 	engine.time_up = false;
 
-    move_t best_move = engine.get_strategy();
+    // move_t best_move = engine.get_strategy();
+	move_t best_move = engine.get_best_move();
 
     if(best_move.is_null()){
         std::ofstream outFile(out_file_name);

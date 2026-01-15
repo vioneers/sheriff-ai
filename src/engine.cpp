@@ -172,7 +172,7 @@ engine_t::engine_t(const std::vector<move_t> &move_hist){
     init_zobrist();
     board = board_t(move_hist);
     root_best_move = move_t{}; // initialize as null move
-    openings.init_lookup_table();
+    // openings.init_lookup_table();
 };
 
 int engine_t::evaluate(){
