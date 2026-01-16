@@ -501,9 +501,11 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
     }*/
 
     int move_index = 0;
+    int full_depth = search_depth - 1;
     for (auto& move : legal) {
         bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
         bool do_lmr = lmr_allowed(move, is_root, in_check, search_depth, ply, board_phase);
+        bool is_pv = (move_index == 0);
         int score = 0;
 
 #ifdef DEBUG
@@ -511,23 +513,28 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
             pv_length[ply + 1] = 0;
 #endif
 
-        if (do_lmr) {
+        if (do_lmr && !is_pv) {
             int reduction = (move_index >= LMR_DEEPER_MOVES && search_depth >= LMR_DEEPER_DEPTH) ? 2 : 1;
-            int reduced_depth = search_depth - 1 - reduction;
+            int reduced_depth = full_depth - reduction;
             if (reduced_depth < 0)
                 reduced_depth = 0;
             board.make_move(move);
-            score = alphaBetaMin(alpha, beta, reduced_depth, false, ply + 1);
+            score = alphaBetaMin(alpha, alpha + 1, reduced_depth, false, ply + 1);
             board.undo_move(move);
             if (score > alpha) {
                 board.make_move(move);
-                score = alphaBetaMin(alpha, beta, search_depth - 1, false, ply + 1);
+                score = alphaBetaMin(alpha, alpha + 1, full_depth, false, ply + 1);
                 board.undo_move(move);
             }
-        }
-        else {
+        } else {
             board.make_move(move);
-            score = alphaBetaMin(alpha, beta, search_depth - 1, false, ply + 1);
+            score = alphaBetaMin(alpha, is_pv ? beta : (alpha + 1), full_depth, false, ply + 1);
+            board.undo_move(move);
+        }
+
+        if (!is_pv && score > alpha && score < beta) {
+            board.make_move(move);
+            score = alphaBetaMin(alpha, beta, full_depth, false, ply + 1);
             board.undo_move(move);
         }
 
@@ -707,9 +714,11 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
     }*/
 
     int move_index = 0;
+    int full_depth = search_depth - 1;
     for (auto& move : legal) {
         bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
         bool do_lmr = lmr_allowed(move, is_root, in_check, search_depth, ply, board_phase);
+        bool is_pv = (move_index == 0);
         int score = 0;
 
 #ifdef DEBUG
@@ -717,23 +726,29 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
             pv_length[ply + 1] = 0;
 #endif
 
-        if (do_lmr){
+        if (do_lmr && !is_pv){
             int reduction = (move_index >= LMR_DEEPER_MOVES && search_depth >= LMR_DEEPER_DEPTH) ? 2 : 1;
-            int reduced_depth = search_depth - 1 - reduction;
+            int reduced_depth = full_depth - reduction;
             if (reduced_depth < 0)
                 reduced_depth = 0;
             board.make_move(move);
-            score = alphaBetaMax(alpha, beta, reduced_depth, false, ply + 1);
+            score = alphaBetaMax(beta - 1, beta, reduced_depth, false, ply + 1);
             board.undo_move(move);
             if (score < beta) {
                 board.make_move(move);
-                score = alphaBetaMax(alpha, beta, search_depth - 1, false, ply + 1);
+                score = alphaBetaMax(beta - 1, beta, full_depth, false, ply + 1);
                 board.undo_move(move);
             }
         }
         else {
             board.make_move(move);
-            score = alphaBetaMax(alpha, beta, search_depth - 1, false, ply + 1);
+            score = alphaBetaMax(is_pv ? alpha : (beta - 1), beta, full_depth, false, ply + 1);
+            board.undo_move(move);
+        }
+
+        if (!is_pv && score < beta && score > alpha) {
+            board.make_move(move);
+            score = alphaBetaMax(alpha, beta, full_depth, false, ply + 1);
             board.undo_move(move);
         }
 
