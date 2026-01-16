@@ -344,12 +344,15 @@ bool board_t::make_move(move_t m){
 	int new_ep = (next.ep_square == -1) ? 8 : (next.ep_square % 8);
 	new_key ^= Z_EPFILE[new_ep];
 
+	// Save prev castling rights BEFORE push_back (which may invalidate the reference)
+	int prev_castling_rights = prev.castling_rights;
+
 	next.z_key = new_key;
 	history.push_back(next); 
 	irreversible_stack.push_back(last_irreversible_index);
 
 	// See if irreversible 
-	bool castle_changed = (next.castling_rights != prev.castling_rights);
+	bool castle_changed = (next.castling_rights != prev_castling_rights);
 	bool irreversible = is_capture || (moving == PAWN) || is_promo || castle_changed;
 
 	if (irreversible){

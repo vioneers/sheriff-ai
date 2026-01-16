@@ -356,7 +356,7 @@ int evaluate_board(board_t& board) {
 
     score += eval_opening_development(board);
 
-    score += eval_king_activity(board);
+    // score += eval_king_activity(board);
     score += eval_passed_pawns(board);
     score += eval_king_confinement(board);
 
