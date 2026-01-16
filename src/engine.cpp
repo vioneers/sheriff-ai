@@ -76,13 +76,13 @@ static inline bool null_move_allowed(const board_t& b){
     int pawns = popcount_bb(b.pieces[PAWN] & b.occupancy[BOTH]);
     int majors = popcount_bb((b.pieces[ROOK] | b.pieces[QUEEN]) & b.occupancy[BOTH]);
     int minors = popcount_bb((b.pieces[KNIGHT] | b.pieces[BISHOP]) & b.occupancy[BOTH]);
+    
     return !(pawns == 0 && majors == 0 && minors <= 2);
 }
 
-static inline bool lmr_allowed(const move_t& move, bool is_root, bool in_check, int depth_left, int ply, double phase) {
-    bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
+static inline bool lmr_allowed(bool is_quiet, bool is_root, bool in_check, bool is_check, int depth_left, int ply, double phase) {
     bool is_endgame = phase < 0.25;
-    bool do_lmr = !is_root && is_quiet && !in_check && !is_endgame && depth_left >= LMR_MIN_DEPTH && ply >= 2;
+    bool do_lmr = !is_root && is_quiet && !in_check && !is_check && !is_endgame && depth_left >= LMR_MIN_DEPTH && ply >= 2;
 
     return do_lmr;
 }
@@ -435,7 +435,7 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
     if(is_root && !root_best_move.is_null())
         ttMove = root_best_move;
 
-    if (!is_root && !in_check && search_depth >= NMP_MIN_DEPTH && null_move_allowed(board)){
+    if (!is_root && !in_check && board_phase > 0.25 && search_depth >= NMP_MIN_DEPTH && null_move_allowed(board)) {
         int reduced_depth = search_depth - 1 - NMP_REDUCTION;
         if (reduced_depth < 0)
             reduced_depth = 0;
@@ -503,40 +503,44 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
     int move_index = 0;
     int full_depth = search_depth - 1;
     for (auto& move : legal) {
-        bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
-        bool do_lmr = lmr_allowed(move, is_root, in_check, search_depth, ply, board_phase);
-        bool is_pv = (move_index == 0);
-        int score = 0;
 
 #ifdef DEBUG
         if (ply + 1 < MAX_PLY)
             pv_length[ply + 1] = 0;
 #endif
 
-        if (do_lmr && !is_pv) {
+        int score = 0;
+        bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
+        bool is_pv = (move_index == 0);
+
+        board.make_move(move);
+
+        bool is_check = board.in_check(board.history.back().turn); // whether the move we made gave a check
+        bool do_lmr = lmr_allowed(is_quiet, is_root, in_check, is_check, search_depth, ply, board_phase);
+
+        if (do_lmr && !is_pv)
+        {
             int reduction = (move_index >= LMR_DEEPER_MOVES && search_depth >= LMR_DEEPER_DEPTH) ? 2 : 1;
             int reduced_depth = full_depth - reduction;
             if (reduced_depth < 0)
                 reduced_depth = 0;
-            board.make_move(move);
+            
+            // try lmr
             score = alphaBetaMin(alpha, alpha + 1, reduced_depth, false, ply + 1);
-            board.undo_move(move);
-            if (score > alpha) {
-                board.make_move(move);
+
+            if (score > alpha)
                 score = alphaBetaMin(alpha, alpha + 1, full_depth, false, ply + 1);
-                board.undo_move(move);
-            }
-        } else {
-            board.make_move(move);
+        } 
+        else
+        {
+            // normal search with Principal Variation Search
             score = alphaBetaMin(alpha, is_pv ? beta : (alpha + 1), full_depth, false, ply + 1);
-            board.undo_move(move);
         }
 
-        if (!is_pv && score > alpha && score < beta) {
-            board.make_move(move);
+        if (!is_pv && score > alpha && score < beta)
             score = alphaBetaMin(alpha, beta, full_depth, false, ply + 1);
-            board.undo_move(move);
-        }
+        
+        board.undo_move(move);
 
         if (time_up) {
         #ifdef DEBUG
@@ -603,7 +607,6 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
     // parameters for this node (call of the function)
     move_t best_move{}; // initialy the null move
     int best = INF;
-    int alphaOrig = alpha; // store inital alpha (needed for TTstore)
     int betaOrig = beta; // store inital beta (needed for TTstore)
     const uint64_t z_key = board.history.back().z_key;
     double board_phase = phase(board);
@@ -647,7 +650,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
     if(is_root && !root_best_move.is_null())
         ttMove = root_best_move;
 
-    if (!is_root && !in_check && search_depth >= NMP_MIN_DEPTH && null_move_allowed(board)){
+    if (!is_root && !in_check && board_phase > 0.25 && search_depth >= NMP_MIN_DEPTH && null_move_allowed(board)) {
         int reduced_depth = search_depth - 1 - NMP_REDUCTION;
         if (reduced_depth < 0)
             reduced_depth = 0;
@@ -664,7 +667,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
             
             if (score <= alpha)
             {
-                TTstore(z_key, alpha, search_depth, ply, alphaOrig, betaOrig, move_t{}); 
+                TTstore(z_key, alpha, search_depth, ply, alpha, betaOrig, move_t{}); 
                 return score;
             }
         }
@@ -689,7 +692,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
             root_best_move = move_t{};
 
         best = in_check ? MATE_SCORE - ply : 0; // checkmate or stalemate
-        TTstore(z_key, best, search_depth, ply, alphaOrig, betaOrig, best_move);
+        TTstore(z_key, best, search_depth, ply, alpha, betaOrig, best_move);
         return best;
     }
 
@@ -716,41 +719,44 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
     int move_index = 0;
     int full_depth = search_depth - 1;
     for (auto& move : legal) {
-        bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
-        bool do_lmr = lmr_allowed(move, is_root, in_check, search_depth, ply, board_phase);
-        bool is_pv = (move_index == 0);
-        int score = 0;
-
 #ifdef DEBUG
         if (ply + 1 < MAX_PLY)
             pv_length[ply + 1] = 0;
 #endif
 
-        if (do_lmr && !is_pv){
+        int score = 0;
+        bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
+        bool is_pv = (move_index == 0);
+
+        board.make_move(move);
+
+        bool is_check = board.in_check(board.history.back().turn); // whether the move we made gave a check
+        bool do_lmr = lmr_allowed(is_quiet, is_root, in_check, is_check, search_depth, ply, board_phase);
+
+        if (do_lmr && !is_pv)
+        {
             int reduction = (move_index >= LMR_DEEPER_MOVES && search_depth >= LMR_DEEPER_DEPTH) ? 2 : 1;
             int reduced_depth = full_depth - reduction;
             if (reduced_depth < 0)
                 reduced_depth = 0;
-            board.make_move(move);
+
+            // try lmr
             score = alphaBetaMax(beta - 1, beta, reduced_depth, false, ply + 1);
-            board.undo_move(move);
-            if (score < beta) {
-                board.make_move(move);
+            
+            if (score < beta)
                 score = alphaBetaMax(beta - 1, beta, full_depth, false, ply + 1);
-                board.undo_move(move);
-            }
         }
-        else {
-            board.make_move(move);
+        else
+        {
+            // normal search with Principal Variation Search
             score = alphaBetaMax(is_pv ? alpha : (beta - 1), beta, full_depth, false, ply + 1);
-            board.undo_move(move);
+        }
+        
+        if (!is_pv && score < beta && score > alpha) {
+            score = alphaBetaMax(alpha, beta, full_depth, false, ply + 1);
         }
 
-        if (!is_pv && score < beta && score > alpha) {
-            board.make_move(move);
-            score = alphaBetaMax(alpha, beta, full_depth, false, ply + 1);
-            board.undo_move(move);
-        }
+        board.undo_move(move);
 
         if (time_up) {
         #ifdef DEBUG
@@ -793,10 +799,13 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
         ++move_index;
     }
 
-    TTstore(z_key, best, search_depth, ply, alphaOrig, betaOrig, best_move);
+    TTstore(z_key, best, search_depth, ply, alpha, betaOrig, best_move);
 
     return best;
 }
+
+
+
 move_t engine_t::get_strategy(){ // Play opening or get_best_move
     move_t best_move;
     bool found_opening = openings.probe(board,best_move);

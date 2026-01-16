@@ -665,30 +665,19 @@ bool board_t::square_attacked(int sq, Color by_color) const
 		return true;
 
 	// Sliding attacks
-	auto ray_hit = [&](int df, int dr, Bitboard sliders) -> bool {
-		int f = (sq % 8) + df;
-		int r = (sq / 8) + dr;
-		while (f >= 0 && f < 8 && r >= 0 && r < 8) {
-			int idx = r * 8 + f;
-			Bitboard bb = 1ULL << idx;
-			if (occ_all & bb)
-				return (sliders & bb) != 0;
-			f += df;
-			r += dr;
-		}
-		return false;
-	};
+	// main idea: if the king could move like a queen, which opponent rooks / bishops / queens could it see
+	Bitboard rblockers = occupancy[BOTH] & RookMask[sq];
+	Bitboard rhash = apply_magic(rblockers, RMagic[sq], RShift[sq]);
 
-	// Bishop and queen diagonals
-	Bitboard bishops = (pieces[BISHOP] | pieces[QUEEN]) & by_occ;
-	if (ray_hit(1, 1, bishops) || ray_hit(-1, 1, bishops) ||
-		ray_hit(1, -1, bishops) || ray_hit(-1, -1, bishops))
-		return true;
+	Bitboard bblockers = occupancy[BOTH] & BishopMask[sq];
+	Bitboard bhash = apply_magic(bblockers, BMagic[sq], BShift[sq]);
 
-	// Rook and queen orthogonals
 	Bitboard rooks = (pieces[ROOK] | pieces[QUEEN]) & by_occ;
-	if (ray_hit(0, 1, rooks) || ray_hit(0, -1, rooks) ||
-		ray_hit(1, 0, rooks) || ray_hit(-1, 0, rooks))
+	Bitboard bishops = (pieces[BISHOP] | pieces[QUEEN]) & by_occ;
+
+	if (RookAttacks[sq][rhash] & rooks)
+		return true;
+	if (BishopAttacks[sq][bhash] & bishops)
 		return true;
 
 	return false;
