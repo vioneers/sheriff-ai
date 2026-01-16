@@ -19,6 +19,7 @@ constexpr int LMR_DEEPER_DEPTH = 5;
 constexpr int NMP_MIN_DEPTH = 3;
 constexpr int NMP_REDUCTION = 2;
 constexpr int DELTA_MARGIN = 120;
+constexpr int CHECK_EXTENSION = 1;
 
 static int mv_piece_value(PieceType s){
     switch(s){
@@ -407,6 +408,7 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
     }
 
     bool in_check = board.in_check(board.history.back().turn);
+    int search_depth = depth_left + ((in_check && depth_left >= 1) ? CHECK_EXTENSION : 0);
 
     // check for threefold before timout just in case we can get a more acurate score
     if (board.is_repetition(3))
@@ -420,7 +422,7 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
     int ttScore = -INF;
     move_t ttMove{}; // initially ttMove is null
 
-    if (checkTT(z_key, depth_left, ply, alpha, beta, ttScore, ttMove))
+    if (checkTT(z_key, search_depth, ply, alpha, beta, ttScore, ttMove))
     {
 #ifdef DEBUG
         TT_CUTOFFS++;
@@ -433,8 +435,8 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
     if(is_root && !root_best_move.is_null())
         ttMove = root_best_move;
 
-    if (!is_root && !in_check && depth_left >= NMP_MIN_DEPTH && null_move_allowed(board)){
-        int reduced_depth = depth_left - 1 - NMP_REDUCTION;
+    if (!is_root && !in_check && search_depth >= NMP_MIN_DEPTH && null_move_allowed(board)){
+        int reduced_depth = search_depth - 1 - NMP_REDUCTION;
         if (reduced_depth < 0)
             reduced_depth = 0;
         if (board.make_null_move()){
@@ -450,13 +452,13 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
             
             if (score >= beta)
             {
-                TTstore(z_key, beta, depth_left, ply, alphaOrig, beta, move_t{}); // store beta, not score
+                TTstore(z_key, beta, search_depth, ply, alphaOrig, beta, move_t{}); // store beta, not score
                 return score;
             }
         }
     }
 
-    if (depth_left == 0) {
+    if (search_depth == 0) {
 #ifdef DEBUG
         pv_length[ply] = 0;
 #endif
@@ -474,7 +476,7 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
             root_best_move = move_t{};
 
         best = in_check ? -MATE_SCORE + ply : 0; // checkmate or stalemate
-        TTstore(z_key, best, depth_left, ply, alphaOrig, beta, best_move);
+        TTstore(z_key, best, search_depth, ply, alphaOrig, beta, best_move);
         return best;
     }
 
@@ -501,7 +503,7 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
     int move_index = 0;
     for (auto& move : legal) {
         bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
-        bool do_lmr = lmr_allowed(move, is_root, in_check, depth_left, ply, board_phase);
+        bool do_lmr = lmr_allowed(move, is_root, in_check, search_depth, ply, board_phase);
         int score = 0;
 
 #ifdef DEBUG
@@ -510,8 +512,8 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
 #endif
 
         if (do_lmr) {
-            int reduction = (move_index >= LMR_DEEPER_MOVES && depth_left >= LMR_DEEPER_DEPTH) ? 2 : 1;
-            int reduced_depth = depth_left - 1 - reduction;
+            int reduction = (move_index >= LMR_DEEPER_MOVES && search_depth >= LMR_DEEPER_DEPTH) ? 2 : 1;
+            int reduced_depth = search_depth - 1 - reduction;
             if (reduced_depth < 0)
                 reduced_depth = 0;
             board.make_move(move);
@@ -519,13 +521,13 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
             board.undo_move(move);
             if (score > alpha) {
                 board.make_move(move);
-                score = alphaBetaMin(alpha, beta, depth_left - 1, false, ply + 1);
+                score = alphaBetaMin(alpha, beta, search_depth - 1, false, ply + 1);
                 board.undo_move(move);
             }
         }
         else {
             board.make_move(move);
-            score = alphaBetaMin(alpha, beta, depth_left - 1, false, ply + 1);
+            score = alphaBetaMin(alpha, beta, search_depth - 1, false, ply + 1);
             board.undo_move(move);
         }
 
@@ -557,7 +559,7 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
             if (is_quiet) {
                 int from = move.from();
                 int to = move.to();
-                history_table[from][to] += depth_left * depth_left;
+                history_table[from][to] += search_depth * search_depth;
                 if (ply >= 0 && ply < MAX_PLY) {
                     if (killer_moves[ply][0] != move.data) {
                         killer_moves[ply][1] = killer_moves[ply][0];
@@ -570,7 +572,7 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
         ++move_index;
     }
 
-    TTstore(z_key, best, depth_left, ply, alphaOrig, beta, best_move);
+    TTstore(z_key, best, search_depth, ply, alphaOrig, beta, best_move);
 
     return best;
 }
@@ -611,6 +613,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
     }
 
     bool in_check = board.in_check(board.history.back().turn);
+    int search_depth = depth_left + ((in_check && depth_left >= 1) ? CHECK_EXTENSION : 0);
 
     // check for threefold before timout just in case we can get a more acurate score
     if (board.is_repetition(3))
@@ -624,7 +627,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
     int ttScore = INF;
     move_t ttMove{}; // initially ttMove is null
 
-    if (checkTT(z_key, depth_left, ply, alpha, beta, ttScore, ttMove))
+    if (checkTT(z_key, search_depth, ply, alpha, beta, ttScore, ttMove))
     {
 #ifdef DEBUG
         TT_CUTOFFS++;
@@ -637,8 +640,8 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
     if(is_root && !root_best_move.is_null())
         ttMove = root_best_move;
 
-    if (!is_root && !in_check && depth_left >= NMP_MIN_DEPTH && null_move_allowed(board)){
-        int reduced_depth = depth_left - 1 - NMP_REDUCTION;
+    if (!is_root && !in_check && search_depth >= NMP_MIN_DEPTH && null_move_allowed(board)){
+        int reduced_depth = search_depth - 1 - NMP_REDUCTION;
         if (reduced_depth < 0)
             reduced_depth = 0;
         if (board.make_null_move()){
@@ -654,13 +657,13 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
             
             if (score <= alpha)
             {
-                TTstore(z_key, alpha, depth_left, ply, alphaOrig, betaOrig, move_t{}); 
+                TTstore(z_key, alpha, search_depth, ply, alphaOrig, betaOrig, move_t{}); 
                 return score;
             }
         }
     }
 
-    if (depth_left == 0) {
+    if (search_depth == 0) {
 #ifdef DEBUG
         pv_length[ply] = 0;
 #endif
@@ -679,7 +682,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
             root_best_move = move_t{};
 
         best = in_check ? MATE_SCORE - ply : 0; // checkmate or stalemate
-        TTstore(z_key, best, depth_left, ply, alphaOrig, betaOrig, best_move);
+        TTstore(z_key, best, search_depth, ply, alphaOrig, betaOrig, best_move);
         return best;
     }
 
@@ -706,7 +709,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
     int move_index = 0;
     for (auto& move : legal) {
         bool is_quiet = ((move.flag() & CAPTURE) == 0) && ((move.flag() & PROMO_N) == 0);
-        bool do_lmr = lmr_allowed(move, is_root, in_check, depth_left, ply, board_phase);
+        bool do_lmr = lmr_allowed(move, is_root, in_check, search_depth, ply, board_phase);
         int score = 0;
 
 #ifdef DEBUG
@@ -715,8 +718,8 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
 #endif
 
         if (do_lmr){
-            int reduction = (move_index >= LMR_DEEPER_MOVES && depth_left >= LMR_DEEPER_DEPTH) ? 2 : 1;
-            int reduced_depth = depth_left - 1 - reduction;
+            int reduction = (move_index >= LMR_DEEPER_MOVES && search_depth >= LMR_DEEPER_DEPTH) ? 2 : 1;
+            int reduced_depth = search_depth - 1 - reduction;
             if (reduced_depth < 0)
                 reduced_depth = 0;
             board.make_move(move);
@@ -724,13 +727,13 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
             board.undo_move(move);
             if (score < beta) {
                 board.make_move(move);
-                score = alphaBetaMax(alpha, beta, depth_left - 1, false, ply + 1);
+                score = alphaBetaMax(alpha, beta, search_depth - 1, false, ply + 1);
                 board.undo_move(move);
             }
         }
         else {
             board.make_move(move);
-            score = alphaBetaMax(alpha, beta, depth_left - 1, false, ply + 1);
+            score = alphaBetaMax(alpha, beta, search_depth - 1, false, ply + 1);
             board.undo_move(move);
         }
 
@@ -762,7 +765,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
             if (is_quiet) {
                 int from = move.from();
                 int to = move.to();
-                history_table[from][to] += depth_left * depth_left;
+                history_table[from][to] += search_depth * search_depth;
                 if (ply >= 0 && ply < MAX_PLY) {
                     if (killer_moves[ply][0] != move.data) {
                         killer_moves[ply][1] = killer_moves[ply][0];
@@ -775,7 +778,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
         ++move_index;
     }
 
-    TTstore(z_key, best, depth_left, ply, alphaOrig, betaOrig, best_move);
+    TTstore(z_key, best, search_depth, ply, alphaOrig, betaOrig, best_move);
 
     return best;
 }
