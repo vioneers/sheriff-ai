@@ -43,4 +43,4 @@ good even without making a move, if it is so then we prune the branch, allowing 
 - Implemented delta pruning in quiescence search to prune away moves which are likely worse, this will reduce search time and hence help increase the search depth.
 - Implemented check extensions. If in a given position the king is in check, then we increase the search depth by 1 to take into 
 into account any possible tactics that might be present in the position.
-- Implemented Principal variation search, this searches the "best" line at full depth and then reduced depths for other lines.
+- Implemented Principal variation search, this searches the "best" line at full depth and then reduced depths for other lines. It does this by modifying the cutoff boundaries, essentially setting alpha=beta for non-principle moves. Hence, this makes it very likely that to trigger a cutoff if the move is not promising.
