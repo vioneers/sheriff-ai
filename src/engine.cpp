@@ -18,17 +18,53 @@ constexpr int LMR_DEEPER_MOVES = 6;
 constexpr int LMR_DEEPER_DEPTH = 5;
 constexpr int NMP_MIN_DEPTH = 3;
 constexpr int NMP_REDUCTION = 2;
+constexpr int DELTA_MARGIN = 120;
 
 static int mv_piece_value(PieceType s){
     switch(s){
         case PAWN: return 100;
-        case KNIGHT: return 300;
-        case BISHOP: return 320;
+        case KNIGHT: return 320;
+        case BISHOP: return 330;
         case ROOK: return 500;
         case QUEEN: return 900;
         case KING: return 20000;
         default: return 0;
     }
+}
+
+static int promo_piece_value(int flag){
+    switch (flag) {
+        case PROMO_N:
+        case PROMO_N_CAP:
+            return mv_piece_value(KNIGHT);
+        case PROMO_B:
+        case PROMO_B_CAP:
+            return mv_piece_value(BISHOP);
+        case PROMO_R:
+        case PROMO_R_CAP:
+            return mv_piece_value(ROOK);
+        case PROMO_Q:
+        case PROMO_Q_CAP:
+            return mv_piece_value(QUEEN);
+        default:
+            return 0;
+    }
+}
+
+static int delta_prune_gain(const move_t& m, const board_t& board){
+    int gain = 0;
+    int flag = m.flag();
+    bool is_capture = (flag & CAPTURE) != 0;
+    if (is_capture) {
+        PieceType target = board.mailbox[m.to()];
+        if (flag == EP_CAPTURE)
+            target = PAWN;
+        gain += mv_piece_value(target);
+    }
+    int promo_val = promo_piece_value(flag);
+    if (promo_val > 0)
+        gain += promo_val - mv_piece_value(PAWN);
+    return gain;
 }
 
 static int popcount_bb(Bitboard bb){
@@ -211,6 +247,9 @@ int engine_t::quiesenceSearchMax(int alpha, int beta, int ply){
 
     if (stand_pat >= beta)
         return beta;
+
+    int delta_alpha = alpha;
+
     if (stand_pat > alpha)
         alpha = stand_pat;
 
@@ -241,6 +280,11 @@ int engine_t::quiesenceSearchMax(int alpha, int beta, int ply){
 
     int best = alpha;
     for (auto &move : legal){
+        if (!is_check) {
+            int gain = delta_prune_gain(move, board);
+            if (stand_pat + gain + DELTA_MARGIN <= delta_alpha)
+                continue;
+        }
         board.make_move(move);
         int score = quiesenceSearchMin(best, beta, ply + 1);
         board.undo_move(move);
@@ -275,6 +319,9 @@ int engine_t::quiesenceSearchMin(int alpha, int beta, int ply){
 
     if (stand_pat <= alpha)
         return alpha;
+
+    int delta_beta = beta;
+
     if (stand_pat < beta)
         beta = stand_pat;
 
@@ -305,6 +352,11 @@ int engine_t::quiesenceSearchMin(int alpha, int beta, int ply){
 
     int best = beta;
     for (auto &move : legal){
+        if (!is_check) {
+            int gain = delta_prune_gain(move, board);
+            if (stand_pat - gain - DELTA_MARGIN >= delta_beta)
+                continue;
+        }
         board.make_move(move);
         int score = quiesenceSearchMax(alpha, best, ply + 1);
         board.undo_move(move);
