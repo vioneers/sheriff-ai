@@ -18,6 +18,9 @@ struct engine_t {
     uint16_t killer_moves[MAX_PLY][2]{};
     int history_table[64][64]{};
 
+    void update_history(int from, int to, int depth);
+    void update_killers(int ply, uint16_t move_data);
+
 #ifdef DEBUG
     move_t pv_moves[MAX_PLY][MAX_PLY]{};
     int pv_length[MAX_PLY]{};

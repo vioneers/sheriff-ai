@@ -20,6 +20,7 @@ constexpr int NMP_MIN_DEPTH = 3;
 constexpr int NMP_REDUCTION = 2;
 constexpr int DELTA_MARGIN = 120;
 constexpr int CHECK_EXTENSION = 1;
+constexpr int HISTORY_MAX = 400000;
 
 static int mv_piece_value(PieceType s){
     switch(s){
@@ -85,6 +86,21 @@ static inline bool lmr_allowed(bool is_quiet, bool is_root, bool in_check, bool 
     bool do_lmr = !is_root && is_quiet && !in_check && !is_check && !is_endgame && depth_left >= LMR_MIN_DEPTH && ply >= 2;
 
     return do_lmr;
+}
+
+void engine_t::update_history(int from, int to, int depth) {
+    int bonus = depth * depth;
+    if (history_table[from][to] < HISTORY_MAX - bonus)
+        history_table[from][to] += bonus;
+}
+
+void engine_t::update_killers(int ply, uint16_t move_data) {
+    if (ply >= 0 && ply < MAX_PLY) {
+        if (killer_moves[ply][0] != move_data) {
+            killer_moves[ply][1] = killer_moves[ply][0];
+            killer_moves[ply][0] = move_data;
+        }
+    }
 }
 
 #ifdef DEBUG
@@ -453,7 +469,7 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
             if (score >= beta)
             {
                 TTstore(z_key, beta, search_depth, ply, alphaOrig, beta, move_t{}); // store beta, not score
-                return score;
+                return beta;
             }
         }
     }
@@ -568,15 +584,8 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
         }
         if (score >= beta) {
             if (is_quiet) {
-                int from = move.from();
-                int to = move.to();
-                history_table[from][to] += search_depth * search_depth;
-                if (ply >= 0 && ply < MAX_PLY) {
-                    if (killer_moves[ply][0] != move.data) {
-                        killer_moves[ply][1] = killer_moves[ply][0];
-                        killer_moves[ply][0] = move.data;
-                    }
-                }
+                update_killers(ply, move.data);
+                update_history(move.from(), move.to(), search_depth);
             }
             break; // just break is enough, makes flow simpler for TT
         }
@@ -668,7 +677,7 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
             if (score <= alpha)
             {
                 TTstore(z_key, alpha, search_depth, ply, alpha, betaOrig, move_t{}); 
-                return score;
+                return alpha;
             }
         }
     }
@@ -784,15 +793,8 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
         }
         if (score <= alpha) {
             if (is_quiet) {
-                int from = move.from();
-                int to = move.to();
-                history_table[from][to] += search_depth * search_depth;
-                if (ply >= 0 && ply < MAX_PLY) {
-                    if (killer_moves[ply][0] != move.data) {
-                        killer_moves[ply][1] = killer_moves[ply][0];
-                        killer_moves[ply][0] = move.data;
-                    }
-                }
+                update_killers(ply, move.data);
+                update_history(move.from(), move.to(), search_depth);
             }
             break; // just break is enough, makes flow simpler for TT
         }
@@ -817,18 +819,69 @@ move_t engine_t::get_strategy(){ // Play opening or get_best_move
 move_t engine_t::get_best_move(){ // with Iterative Deepening
     using clock = std::chrono::steady_clock;
     int depth = 1; 
+    int prev_score = 0;
+    bool has_prev = false;
+
+    // Constants for aspiration windows
+    constexpr int ASP_WINDOW_INITIAL = 30;
+    constexpr int ASP_WINDOW_MAX = 500;
+    constexpr int ASP_MIN_DEPTH = 4;  // Don't use aspiration below depth 4
 
     do{
         int score = 0;
         Color turn = board.history.back().turn;
-        if(turn == WHITE)
-            score = alphaBetaMax(-1e9, 1e9, depth);
-        else
-            score = alphaBetaMin(-1e9, 1e9, depth);
+
+        bool use_aspiration = has_prev 
+                                && (std::abs(prev_score) < MATE_SCORE - 1000) 
+                                && depth >= ASP_MIN_DEPTH;
+
+        int alpha = -INF;
+        int beta = INF;
+        int window = ASP_WINDOW_INITIAL;
+
+        if (use_aspiration) {
+            alpha = prev_score - window;
+            beta = prev_score + window;
+        }
+
+        while (true) {
+            if (turn == WHITE)
+                score = alphaBetaMax(alpha, beta, depth);
+            else
+                score = alphaBetaMin(alpha, beta, depth);
+
+            if (time_up || !use_aspiration)
+                break;
+
+            if (score <= alpha){
+                window *= 2;
+                if (window >= ASP_WINDOW_MAX) {
+                    alpha = -INF;
+                    beta = INF;
+                } 
+                else {
+                    alpha = prev_score - window;
+                } 
+            }
+            else if (score >= beta){
+                window *= 2;
+                if (window >= ASP_WINDOW_MAX) {
+                    alpha = -INF;
+                    beta = INF;
+                } else {
+                    beta = prev_score + window;
+                }
+            }
+            else{
+                break;
+            }
+        }
 
         if(!time_up)
         {
             iterative_best_move = root_best_move;
+            prev_score = score;
+            has_prev = true;
 #ifdef DEBUG
             std::cout << "finished depth " << depth << "\n";
             log_root_lines();
