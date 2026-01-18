@@ -466,9 +466,9 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
                 return 0; // do not use score if time is up
             }
             
-            if (score >= beta)
+            if (score >= beta && std::abs(score) < MATE_SCORE - MAX_PLY)
             {
-                TTstore(z_key, beta, search_depth, ply, alphaOrig, beta, move_t{}); // store beta, not score
+                // TTstore(z_key, beta, search_depth, ply, alphaOrig, beta, move_t{}); // store beta, not score
                 return beta;
             }
         }
@@ -592,7 +592,9 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
         ++move_index;
     }
 
-    TTstore(z_key, best, search_depth, ply, alphaOrig, beta, best_move);
+    if (std::abs(best) < MATE_SCORE - MAX_PLY){
+        TTstore(z_key, best, search_depth, ply, alphaOrig, beta, best_move);
+    }
 
     return best;
 }
@@ -674,9 +676,9 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
                 return 0; // do not use score if time is up
             }
             
-            if (score <= alpha)
+            if (score <= alpha && std::abs(score) < MATE_SCORE - MAX_PLY)
             {
-                TTstore(z_key, alpha, search_depth, ply, alpha, betaOrig, move_t{}); 
+                // TTstore(z_key, alpha, search_depth, ply, alpha, betaOrig, move_t{}); 
                 return alpha;
             }
         }
@@ -801,7 +803,9 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
         ++move_index;
     }
 
-    TTstore(z_key, best, search_depth, ply, alpha, betaOrig, best_move);
+    if (std::abs(best) < MATE_SCORE - MAX_PLY){
+        TTstore(z_key, best, search_depth, ply, alpha, betaOrig, best_move);
+    }
 
     return best;
 }
@@ -828,6 +832,9 @@ move_t engine_t::get_best_move(){ // with Iterative Deepening
     constexpr int ASP_MIN_DEPTH = 4;  // Don't use aspiration below depth 4
 
     do{
+        if (has_prev && std::abs(prev_score) >= MATE_SCORE - MAX_PLY) {
+            std::fill(TT.begin(), TT.end(), TTentry{});
+        }
         int score = 0;
         Color turn = board.history.back().turn;
 

@@ -19,17 +19,13 @@ void engine_t::TTstore(
     int beta,
     move_t bestMove
 ) {
-
-    TTentry& e = TTprobe(z_key);
-
     // remove the ply / depth from a mate score
     if (std::abs(score) >= MATE_SCORE - MAX_PLY)
     {
-        if (score > 0)
-            score += ply;
-        else
-            score -= ply;
+        return;
     }
+
+    TTentry& e = TTprobe(z_key);
 
     // determine node (bound) type
     NodeType node_type;
@@ -80,10 +76,6 @@ bool engine_t::checkTT(                   // check if we can use info from the T
 
     // add / remove the current ply / depth if dealing with a mate score
     int ttScore = e.score;
-    if (std::abs(ttScore) >= MATE_SCORE - MAX_PLY) {
-        if (ttScore > 0) ttScore -= ply;
-        else             ttScore += ply;
-    }
 
     if (e.node_type == EXACT) {
         outScore = ttScore;

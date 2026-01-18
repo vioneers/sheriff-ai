@@ -46,3 +46,4 @@ into account any possible tactics that might be present in the position.
 - Implemented Principal variation search, this searches the "best" line at full depth and then reduced depths for other lines. It does this by modifying the cutoff boundaries, essentially setting alpha=beta for non-principle moves. Hence, this makes it very likely that to trigger a cutoff if the move is not promising.
 - Implemented aspiration windows, these are applied at the root node of the alpha-beta search and narrow the search window
 around the score of the previous iteration. If the score of the current iteration is within the window then we're done, else we expand the window and search again. This causes more alpha-beta cutoffs earlier and hence increases speed and depth.
+- Modified the codebase so that we don't store matescores in TT. This improves correctness while slightly reducing efficiency.
