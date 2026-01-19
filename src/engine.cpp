@@ -221,11 +221,11 @@ void engine_t::score_moves(std::vector<move_t> &moves, int ply) {
 }
 
 engine_t::engine_t(const std::vector<move_t> &move_hist){
-    // initializations of zobrist key and opening book lookup table moved to engine constructor
-    init_zobrist();
+    // init_zobrist(); moved to main
     board = board_t(move_hist);
+
     root_best_move = move_t{}; // initialize as null move
-    // openings.init_lookup_table();
+    // openings.init_lookup_table(); moved because of time-outs
 };
 
 int engine_t::evaluate(){
@@ -814,7 +814,10 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
 
 move_t engine_t::get_strategy(){ // Play opening or get_best_move
     move_t best_move;
+    auto& openings = get_openings();
     bool found_opening = openings.probe(board,best_move);
+    // std::cout << found_opening << " " << best_move.to_code() << '\n'; 
+    // std::cout << board.history.back().z_key << '\n';
     if (!found_opening)
         best_move = get_best_move();
     return best_move;

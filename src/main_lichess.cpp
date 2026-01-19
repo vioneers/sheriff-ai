@@ -26,7 +26,8 @@ static string compute_bestmove(const vector<move_t>& move_hist, const string& fe
     engine.time_limit = std::chrono::milliseconds(9500); // ~9.5 seconds
     engine.time_up = false;
 
-    move_t best_move = engine.get_best_move();
+    // move_t best_move = engine.get_best_move();
+    move_t best_move = engine.get_strategy();
 
     if(best_move.is_null())
         return "0000"; // UCI “no move” sentinel for terminal nodes

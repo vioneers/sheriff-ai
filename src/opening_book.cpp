@@ -1,53 +1,19 @@
+#include <iostream>
 #include "opening_book.h"
+#include "openings.h"
 
-const std::vector<std::string> OPENINGS = {
-    // Source: https://thechessworld.com/articles/openings/chess-statistics-top-10-best-openings-for-white-and-black/
-    // BEST FOR WHITE
-    // Queen’s Gambit
-    "d2d4 d7d5 c2c4",
-	// Blackmar Diemer Gambit
-    "d2d4 d7d5 e2e4 d5e4",
-	// Ruy Lopez
-    "e2e4 e7e5 g1f3 b8c6 f1b5",
-	// Bishop’s Opening
-    "e2e4 e7e5 f1c4",
-	// Benko Opening
-    "c2c4 g8f6 b1c3",
-	// Reti Opening
-    "g1f3 d7d5 c2c4",
-	// Vienna Game
-    "e2e4 e7e5 b1c3",
-	// Centre Game
-    "e2e4 e7e5 d2d4",
-	// English Opening
-    "c2c4 e7e5 b1c3",
-	// Scotch Game
-    "e2e4 e7e5 g1f3 b8c6 d2d4",
-
-    /*//BEST FOR BLACK
-    // Sicilian Defense
-    "e2e4 c7c5",
-	// Nimzo Indian
-    "d2d4 g8f6 c2c4 e7e6 b1c3 f8b4",
-	// Robatsch Defense
-    "e2e4 g7g6 d2d4 f8g7",
-	// Alekhine Defense
-    "e2e4 g8f6",
-	// Nimzowitsch Defense
-    "e2e4 b8c6",
-	// Rat
-    "d2d4 d7d6 c2c4 g8f6",
-	// Benko Gambit
-    "d2d4 g8f6 c2c4 c7c5 d4c5 b7b5",
-	// Modern Defense
-    "e2e4 g7g6 d2d4 f8g7",
-	// Queen’s Indian Defense
-    "d2d4 g8f6 c2c4 e7e6 g1f3 b7b6",
-	// Pseudo King’s Indian
-    "d2d4 g8f6 c2c4 g7g6"*/
-};
+OpeningBook& get_openings(){
+    static OpeningBook openings;
+    openings.init_lookup_table();
+    return openings;
+}
 
 void OpeningBook::init_lookup_table(){
+    if (initialized) // ensure initialization runs only once
+        return; 
+    initialized = true;
+    lookup_table.reserve(4096); // upperbound on size to prevent rehashes
+
     for (const std::string& opening_line : OPENINGS){
         board_t tmp_board;
         int n = (int)opening_line.size();
@@ -60,13 +26,19 @@ void OpeningBook::init_lookup_table(){
             left = right + 1; // go to the next move, skip the blank space
 
             uint64_t curr_key = tmp_board.history.back().z_key;
+
             move_t move; 
+
+            // std::cout << move.to_code() << " has flag " << move.flag() << " " << curr_key << '\n';
+            
             if (!legal_move_uci(tmp_board, uci, move))
-                break;
+                break; 
             if (lookup_table.find(curr_key) == lookup_table.end())
                 lookup_table.emplace(curr_key, move);
             tmp_board.make_move(move);
         }
+
+        // std::cout << '\n';
     }
 }
 

@@ -44,4 +44,11 @@
     - `eval_mobility()` to return the difference mobility for white - mobility for black instead of just adding a sign for side to move
 - Added a `plies_since_irrev()` method in board -> used to detect 50-move draws in AlphaBeta and Quiesence Search + updated `score_moves()` and `move_order_score()` to give bonus to the score of a capture / pawn move if we are approaching a 50-move and we are in a winning position
 - Added prints to console for the logs of games in `random_bot.cpp` (play 50 games as White and 50 as Black) to check victory rate against random bot 
-- Linked the openings to our engine in `engine.get_strategy()` -> If the current position hash is in the openings, play the known best move at that point. Otherwise, do the search with `engine.get_best_move()`.
+- Linked the openings to our engine in `engine.get_strategy()` -> If the current position hash is in the openings, play the known best move at that point. Otherwise, do the search with `engine.get_best_move()`. (This was commented out for Week 6 because we had time-outs when running stats during TD.)
+
+## Week 7
+- Changes to the way we link openings to our engine (especially to avoid timeouts we had):
+    - Realised legality check from `init_lookup_table()` cannot be removed because of flags the uci might not show, so even though it's costly, we have to keep `legal_move_uci()`
+    - Reserved an upperbound on size of table to avoid rehashes
+    - Added `OpeningBook& get_openings()` and an `initialized` parameter (used when debugging to ensure we only call `init_lookup_table()` once) 
+    - Moved `init_zobrist()` to main
