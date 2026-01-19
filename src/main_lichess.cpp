@@ -8,6 +8,7 @@
 #include "engine.h"
 #include "board.h"
 #include "zobrist.h"
+#include "opening_book.h"
 
 using namespace std;
 
@@ -38,6 +39,7 @@ static string compute_bestmove(const vector<move_t>& move_hist, const string& fe
 }
 
 int main() {
+    init_zobrist(); //moved to main 
     vector<move_t> move_hist;
     string position_fen;
     string line;
