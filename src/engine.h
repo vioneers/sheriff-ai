@@ -56,6 +56,7 @@ struct engine_t {
     
     // call move_order_score and set move.score for all move in moves
     void score_moves(std::vector<move_t> &moves, int ply);
+    void age_history();
 
 #ifdef DEBUG
     void log_root_lines() const;

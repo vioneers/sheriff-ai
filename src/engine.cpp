@@ -103,6 +103,12 @@ void engine_t::update_killers(int ply, uint16_t move_data) {
     }
 }
 
+void engine_t::age_history() {
+    for (int i = 0; i < 64; i++)
+        for (int j = 0; j < 64; j++)
+            history_table[i][j] /= 2;
+}
+
 #ifdef DEBUG
 static void update_pv(engine_t& eng, int ply, const move_t& move){
     eng.pv_moves[ply][0] = move;
@@ -209,12 +215,30 @@ int engine_t::move_order_score(const move_t& m, int ply, bool winning, bool almo
 
 void engine_t::score_moves(std::vector<move_t> &moves, int ply) {
     bool almost_50_move = (board.plies_since_irrev() >= 70);
-    int eval = evaluate_board(board);
-    // haven't made the move yet so don't use ~turn for Us 
-    Color Us = board.history.back().turn; // from what perspective we evaluate
+    // int eval = evaluate_board(board);
+    // // haven't made the move yet so don't use ~turn for Us 
+    // Color Us = board.history.back().turn; // from what perspective we evaluate
 
-    int sign = Us == WHITE ? 1 : -1; 
-    bool winning = (sign * eval > 200); 
+    // int sign = Us == WHITE ? 1 : -1; 
+    // bool winning = (sign * eval > 200); 
+
+    bool winning = false;
+     if (almost_50_move) {
+        // Quick material count (weighted)
+        int material = 
+              100 * (std::popcount(board.pieces[PAWN] & board.occupancy[WHITE]) 
+                   - std::popcount(board.pieces[PAWN] & board.occupancy[BLACK]))
+            + 300 * (std::popcount((board.pieces[KNIGHT] | board.pieces[BISHOP]) & board.occupancy[WHITE]) 
+                   - std::popcount((board.pieces[KNIGHT] | board.pieces[BISHOP]) & board.occupancy[BLACK]))
+            + 500 * (std::popcount(board.pieces[ROOK] & board.occupancy[WHITE]) 
+                   - std::popcount(board.pieces[ROOK] & board.occupancy[BLACK]))
+            + 900 * (std::popcount(board.pieces[QUEEN] & board.occupancy[WHITE]) 
+                   - std::popcount(board.pieces[QUEEN] & board.occupancy[BLACK]));
+        
+        Color Us = board.history.back().turn;
+        int sign = (Us == WHITE) ? 1 : -1;
+        winning = (sign * material >= 200);  // ~2 pawns or more advantage
+    }
 
     for (auto& move : moves)
         move.score = move_order_score(move, ply, winning, almost_50_move);
@@ -275,16 +299,14 @@ int engine_t::quiesenceSearchMax(int alpha, int beta, int ply){
     
     bool is_check = board.in_check(board.history.back().turn);
     if (!is_check){
-        // keep only captures and promotions if not in check
-        // if in check, keep all legal moves
-        for (auto it = legal.begin(); it != legal.end(); ){ // increasing it by case - see below
-            bool is_capture = (it->flag() & CAPTURE) != 0;
-            bool is_promo = (it->flag() & PROMO_N) != 0;
-            if (!(is_capture || is_promo))
-                it = legal.erase(it); // remove this move and go to the next one 
-            else   
-                ++it;
-        }
+        legal.erase(
+            std::remove_if(legal.begin(), legal.end(), [](const move_t& m) {
+                bool is_capture = (m.flag() & CAPTURE) != 0;
+                bool is_promo = (m.flag() & PROMO_N) != 0;
+                return !(is_capture || is_promo);
+            }),
+            legal.end()
+        );
     }
 
     // score the moves using move_order_score
@@ -347,16 +369,14 @@ int engine_t::quiesenceSearchMin(int alpha, int beta, int ply){
 
     bool is_check = board.in_check(board.history.back().turn);
     if (!is_check){
-        // keep only captures and promotions if not in check
-        // if in check, keep all legal moves
-        for (auto it = legal.begin(); it != legal.end(); ){ // increasing it by case - see below
-            bool is_capture = (it->flag() & CAPTURE) != 0;
-            bool is_promo = (it->flag() & PROMO_N) != 0;
-            if (!(is_capture || is_promo))
-                it = legal.erase(it); // remove this move and go to the next one 
-            else   
-                ++it;
-        }
+        legal.erase(
+            std::remove_if(legal.begin(), legal.end(), [](const move_t& m) {
+                bool is_capture = (m.flag() & CAPTURE) != 0;
+                bool is_promo = (m.flag() & PROMO_N) != 0;
+                return !(is_capture || is_promo);
+            }),
+            legal.end()
+        );
     }
 
     // score the moves using move_order_score
@@ -414,7 +434,6 @@ int engine_t::alphaBetaMax(int alpha, int beta, int depth_left, bool is_root, in
 
     if (is_root && ply == 0) {
         std::fill(&killer_moves[0][0], &killer_moves[0][0] + (MAX_PLY * 2), 0);
-        std::fill(&history_table[0][0], &history_table[0][0] + (64 * 64), 0);
 
 #ifdef DEBUG
         std::fill(&pv_length[0], &pv_length[0] + MAX_PLY, 0);
@@ -624,7 +643,6 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
 
     if (is_root && ply == 0) {
         std::fill(&killer_moves[0][0], &killer_moves[0][0] + (MAX_PLY * 2), 0);
-        std::fill(&history_table[0][0], &history_table[0][0] + (64 * 64), 0);
 
 #ifdef DEBUG
         std::fill(&pv_length[0], &pv_length[0] + MAX_PLY, 0);
@@ -814,17 +832,22 @@ int engine_t::alphaBetaMin(int alpha, int beta, int depth_left, bool is_root, in
 
 move_t engine_t::get_strategy(){ // Play opening or get_best_move
     move_t best_move;
-    auto& openings = get_openings();
-    bool found_opening = openings.probe(board,best_move);
-    // std::cout << found_opening << " " << best_move.to_code() << '\n'; 
-    // std::cout << board.history.back().z_key << '\n';
-    if (!found_opening)
-        best_move = get_best_move();
+    int ply_count = board.history.size() - 1;
+
+    if (ply_count < 16){
+        auto& openings = get_openings();
+        if (openings.probe(board, best_move))
+            return best_move;
+    }
+    
+    best_move = get_best_move();
     return best_move;
 }
 
 move_t engine_t::get_best_move(){ // with Iterative Deepening
     using clock = std::chrono::steady_clock;
+
+    age_history();
     int depth = 1; 
     int prev_score = 0;
     bool has_prev = false;
