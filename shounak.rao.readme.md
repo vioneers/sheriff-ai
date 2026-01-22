@@ -47,3 +47,9 @@ into account any possible tactics that might be present in the position.
 - Implemented aspiration windows, these are applied at the root node of the alpha-beta search and narrow the search window
 around the score of the previous iteration. If the score of the current iteration is within the window then we're done, else we expand the window and search again. This causes more alpha-beta cutoffs earlier and hence increases speed and depth.
 - Modified the codebase so that we don't store matescores in TT. This improves correctness while slightly reducing efficiency.
+
+## Week 7
+- Added history board aging so we value older increments lesser on future iterations.
+- Optimised `score_moves` so it doesn't call `eval()` at every node.
+- Modified initiation of opening book so we only do it if the number of moves played in the game is less than 8.
+- Added on the work done by Luxin in evaluationbar.cpp. Major improvements include the addition of tapering, so we transition smoothly between middle and endgames. Added a castling bonus/non-castling penalty. Added a bonus for rooks on open files and having double bishops.
