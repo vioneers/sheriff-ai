@@ -84,7 +84,7 @@ static inline bool null_move_allowed(const board_t& b){
 static inline bool lmr_allowed(bool is_quiet, bool is_root, bool in_check, bool is_check, int depth_left, int ply, double phase) {
     bool is_endgame = phase < 0.25;
     bool do_lmr = !is_root && is_quiet && !in_check && !is_check && !is_endgame && depth_left >= LMR_MIN_DEPTH && ply >= 2;
-
+    return true;
     return do_lmr;
 }
 
