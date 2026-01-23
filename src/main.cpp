@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
 	
 	using clock = std::chrono::steady_clock;
 	engine.start_time = clock::now();
-	engine.time_limit = std::chrono::milliseconds(9500);  // ~9.5 seconds
+	engine.time_limit = std::chrono::milliseconds(9000);  // ~9.5 seconds
 	engine.time_up = false;
 
     move_t best_move = engine.get_strategy(); // Plays opening or get_best_move

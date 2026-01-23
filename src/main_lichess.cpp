@@ -24,7 +24,7 @@ static string compute_bestmove(const vector<move_t>& move_hist, const string& fe
 
     using clock = std::chrono::steady_clock;
     engine.start_time = clock::now();
-    engine.time_limit = std::chrono::milliseconds(9500); // ~9.5 seconds
+    engine.time_limit = std::chrono::milliseconds(9000); // ~9.5 seconds
     engine.time_up = false;
 
     // move_t best_move = engine.get_best_move();
